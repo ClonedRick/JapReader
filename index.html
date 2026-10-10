@@ -1,0 +1,1259 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#fffdf8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1e1f23" media="(prefers-color-scheme: dark)">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="JapReader">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23e03131'/%3E%3Ctext x='50' y='70' font-size='60' text-anchor='middle' fill='white' font-family='serif'%3E読%3C/text%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23e03131'/%3E%3Ctext x='50' y='70' font-size='60' text-anchor='middle' fill='white' font-family='serif'%3E読%3C/text%3E%3C/svg%3E">
+<title>JapReader</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/build/kuromoji.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+:root{
+  --bg:#f7f5f0; --paper:#fffdf8; --ink:#1f1d1a; --muted:#77716a; --line:#e4dfd5;
+  --accent:#3b5bdb; --accent-ink:#fff;
+  --known:#2f9e44; --mid:#f08c00; --mid-bg:#ffd8a8; --unk:#e03131; --unk-bg:#ffc9c9; --new-bg:#ffe3e3;
+  --shadow:0 8px 30px rgba(0,0,0,.12);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#16171a; --paper:#1e1f23; --ink:#ece8e1; --muted:#9a948b; --line:#33343a;
+    --accent:#748ffc; --accent-ink:#111;
+    --mid-bg:#6b4210; --unk-bg:#6e2323; --new-bg:#4a2526;
+    --shadow:0 8px 30px rgba(0,0,0,.5);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#16171a; --paper:#1e1f23; --ink:#ece8e1; --muted:#9a948b; --line:#33343a;
+  --accent:#748ffc; --accent-ink:#111;
+  --mid-bg:#6b4210; --unk-bg:#6e2323; --new-bg:#4a2526;
+  --shadow:0 8px 30px rgba(0,0,0,.5);
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:Inter,system-ui,sans-serif;font-size:14px}
+button,select,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer;border:1px solid var(--line);background:var(--paper);border-radius:8px;padding:6px 11px;white-space:nowrap}
+button:hover{border-color:var(--muted)}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+button:disabled{opacity:.45;cursor:default}
+select{border:1px solid var(--line);background:var(--paper);border-radius:8px;padding:5px 8px}
+
+header{position:sticky;top:0;z-index:20;background:var(--paper);border-bottom:1px solid var(--line)}
+.bar1{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 16px}
+.logo{font-weight:600;font-size:17px;margin-right:6px;font-family:"Noto Serif JP",serif}
+.logo b{color:var(--unk)}
+.sp{flex:1}
+.stats{display:flex;gap:18px;flex-wrap:wrap;padding:0 16px 10px;font-size:12.5px;color:var(--muted)}
+.stat{display:flex;align-items:center;gap:8px;min-width:260px;flex:1}
+.stat .lbl{width:78px;font-weight:500;color:var(--ink)}
+.meter{flex:1;height:9px;border-radius:5px;overflow:hidden;display:flex;background:var(--line);min-width:80px}
+.meter i{display:block;height:100%;transition:width .3s}
+.meter .k{background:var(--known)} .meter .m{background:var(--mid)} .meter .u{background:var(--unk)}
+.stat .txt{white-space:nowrap;font-variant-numeric:tabular-nums}
+
+main{max-width:860px;margin:0 auto;padding:18px 16px 120px}
+.doc-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.doc-title{font-family:"Noto Serif JP",serif;font-size:20px;font-weight:600;flex:1;min-width:200px;overflow-wrap:anywhere}
+.reader{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:28px 32px;
+  font-family:"Noto Serif JP","Hiragino Mincho ProN","Yu Mincho",serif;font-size:var(--fs,22px);line-height:2.1;min-height:300px}
+.reader p{margin:0 0 .9em}
+.reader .ch-title{font-weight:600;font-size:1.15em;margin-bottom:1em;color:var(--muted)}
+.w{cursor:pointer;border-radius:4px;padding:1px 0;transition:background .12s}
+@media (hover:hover){ .w:hover{outline:2px solid var(--accent);outline-offset:1px} }
+.w{-webkit-tap-highlight-color:transparent}
+.touch-only{display:none}
+@media (hover:none){ .touch-only{display:block} .mouse-only{display:none} }
+.w.s0{background:var(--new-bg)}
+.w.s1{background:var(--unk-bg)}
+.w.s2{background:var(--mid-bg)}
+.w.sel{outline:2px solid var(--accent);outline-offset:1px}
+rt{font-size:.5em;color:var(--muted);font-family:Inter,sans-serif}
+.pager{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:16px;flex-wrap:wrap}
+.pager .pnum{font-variant-numeric:tabular-nums;color:var(--muted);min-width:90px;text-align:center}
+.actions{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:12px}
+.legend{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;color:var(--muted);font-size:12.5px;margin-top:14px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:14px;height:14px;border-radius:4px;display:inline-block;border:1px solid var(--line)}
+.hint{color:var(--muted);font-size:12.5px;text-align:center;margin-top:8px}
+kbd{border:1px solid var(--line);border-radius:4px;padding:0 5px;font-size:11px;background:var(--bg)}
+
+/* popup */
+#pop{position:absolute;z-index:40;background:var(--paper);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);
+  padding:12px 14px;width:min(320px,calc(100vw - 32px));display:none}
+#pop.on{display:block}
+#pop .big{font-family:"Noto Serif JP",serif;font-size:26px;line-height:1.5}
+#pop .big rt{font-size:.45em}
+#pop .meta{color:var(--muted);font-size:12.5px;margin:2px 0 10px}
+#pop .meta b{color:var(--ink);font-family:"Noto Serif JP",serif;font-weight:600;font-size:14px}
+#pop .btns{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+#pop .btns button{padding:8px 4px;font-size:13px}
+#pop .btns button.cur{outline:2px solid var(--accent)}
+#pop .b3{background:var(--paper)}
+#pop .b2{background:var(--mid-bg)}
+#pop .b1{background:var(--unk-bg)}
+#pop{max-height:min(560px,calc(100vh - 90px));overflow:auto}
+#pop.wide{width:min(380px,calc(100vw - 32px))}
+#popInfo{margin-top:10px;font-size:13px;line-height:1.5}
+#popInfo:empty{display:none}
+.info-sec{border-top:1px solid var(--line);padding-top:8px;margin-top:8px}
+.info-sec:first-child{border-top:0;margin-top:0;padding-top:0}
+.info-h{font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:3px}
+.gram-t{font-weight:600}
+.conj{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.chip{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:1px 7px;font-size:12.5px}
+.chip b{font-family:"Noto Serif JP",serif;font-weight:600}
+.fr{font-size:14.5px}
+.senses{margin:4px 0 0;padding-left:20px}
+.senses li{margin-bottom:3px}
+.note{color:var(--mid);font-size:12.5px}
+.muted{color:var(--muted)}
+.badge{display:inline-block;font-size:11px;border-radius:5px;padding:0 6px;background:var(--known);color:#fff;margin-left:6px;vertical-align:middle}
+.pitch{font-family:"Noto Serif JP",serif;font-size:15px;letter-spacing:.02em}
+.pitch .hi{border-top:2px solid var(--accent)}
+.pitch .dn{border-right:2px solid var(--accent)}
+.play{padding:1px 8px;font-size:12px;margin-left:6px}
+.ex{font-family:"Noto Serif JP",serif}
+.alts{border-top:1px dashed var(--line);margin-top:8px}
+.alt{display:block;width:100%;text-align:left;margin-bottom:4px;padding:5px 9px;white-space:normal;font-size:12.5px}
+.alt b{font-family:"Noto Serif JP",serif;font-weight:600;font-size:14px}
+#pop .links{margin-top:9px;font-size:12.5px;display:flex;gap:12px;flex-wrap:wrap}
+#pop a{color:var(--accent);text-decoration:none}
+#pop a:hover{text-decoration:underline}
+
+/* modals */
+.modal{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.4);display:none;align-items:flex-start;justify-content:center;padding:6vh 16px;overflow:auto}
+.modal.on{display:flex}
+.box{background:var(--paper);border-radius:14px;box-shadow:var(--shadow);width:min(680px,100%);padding:20px}
+.box h2{margin:0 0 12px;font-size:17px}
+.box textarea{width:100%;min-height:260px;border:1px solid var(--line);border-radius:10px;padding:10px;background:var(--bg);font-family:"Noto Serif JP",serif;font-size:16px;resize:vertical}
+.box input[type=text]{width:100%;border:1px solid var(--line);border-radius:8px;padding:7px 10px;background:var(--bg);margin-bottom:8px}
+.box .row{display:flex;gap:8px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap}
+.lib-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.lib-item .t{flex:1;min-width:0}
+.lib-item .t div:first-child{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:"Noto Serif JP",serif}
+.lib-item .t div:last-child{color:var(--muted);font-size:12px}
+.empty{color:var(--muted);text-align:center;padding:20px}
+.vocab-tabs{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+.vocab-tabs button.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.vlist{max-height:55vh;overflow:auto;border:1px solid var(--line);border-radius:10px}
+.vrow{display:flex;align-items:center;gap:10px;padding:7px 12px;border-bottom:1px solid var(--line)}
+.vrow:last-child{border-bottom:0}
+.vrow .wd{font-family:"Noto Serif JP",serif;font-size:17px;min-width:90px}
+.vrow .rd{color:var(--muted);flex:1;font-size:12.5px}
+.vrow .n{color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
+.vrow .dot{width:10px;height:10px;border-radius:50%}
+
+#loading{position:fixed;inset:0;z-index:60;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;padding:16px}
+#loading .spin{width:34px;height:34px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:sp 1s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+#loading.hide{display:none}
+#toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:70;background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:10px;
+  display:none;align-items:center;gap:12px;box-shadow:var(--shadow);max-width:calc(100vw - 32px)}
+#toast.on{display:flex}
+#toast button{background:transparent;color:var(--paper);border-color:var(--muted)}
+#drop{position:fixed;inset:0;z-index:80;background:rgba(59,91,219,.18);border:4px dashed var(--accent);display:none;align-items:center;justify-content:center;font-size:22px;font-weight:600}
+#drop.on{display:flex}
+
+@media (max-width:640px){
+  .bar1{padding:8px 10px;gap:6px}
+  .bar1 .t, .opt-label{display:none}
+  .bar1 button{padding:6px 10px;font-size:16px}
+  .logo{font-size:15px;margin-right:0}
+  .stats{padding:0 10px 8px;gap:3px;flex-direction:column;flex-wrap:nowrap}
+  .stat{min-width:0;gap:6px}
+  .stat .lbl{width:44px;font-size:11.5px;flex:none}
+  .stats .t{display:none}
+  .meter{flex:0 0 70px;min-width:0}
+  .stat .txt{font-size:11px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+  main{padding:12px 10px 90px}
+  .doc-head{gap:6px}
+  .doc-title{font-size:17px;min-width:0;flex-basis:100%}
+  .reader{padding:16px 14px;border-radius:10px;line-height:2.2}
+  .actions button{flex:1 1 auto;white-space:normal}
+  .pager button{padding:9px 14px}
+  .legend{font-size:11.5px;gap:8px 12px}
+  /* la bulle devient un panneau en bas de l'écran */
+  #pop, #pop.wide{position:fixed;left:0 !important;right:0;bottom:0;top:auto !important;width:100%;
+    border-radius:16px 16px 0 0;border-bottom:0;max-height:62vh;padding:10px 16px calc(14px + env(safe-area-inset-bottom))}
+  #pop::before{content:"";display:block;width:40px;height:4px;border-radius:2px;background:var(--line);margin:0 auto 8px}
+  #pop .btns button{padding:11px 4px;font-size:14px}
+  .play{padding:4px 12px;font-size:14px}
+  #toast{bottom:calc(16px + env(safe-area-inset-bottom))}
+  .modal{padding:12px 10px}
+  .box{padding:16px}
+  .vrow{padding:7px 8px;gap:6px}
+  .vrow .wd{min-width:70px}
+}
+</style>
+</head>
+<body>
+
+<div id="loading"><div class="spin"></div><div id="loadMsg">Chargement de l'analyseur japonais (dictionnaire ~12 Mo)…<br><small style="color:var(--muted)">Uniquement au premier lancement, ensuite le navigateur le garde en cache.</small></div></div>
+
+<header>
+  <div class="bar1">
+    <span class="logo">Jap<b>Reader</b></span>
+    <button id="btnOpen" title="Importer un fichier .txt ou .epub">📂<span class="t"> Importer un texte / EPUB</span></button>
+    <button id="btnPaste" title="Coller un texte">📋<span class="t"> Coller un texte</span></button>
+    <button id="btnLib" title="Bibliothèque">📚<span class="t"> Bibliothèque</span></button>
+    <span class="sp"></span>
+    <button id="btnExport" title="Sauvegarder ma progression (télécharge un .json)">⬇<span class="t"> Sauvegarder ma progression</span></button>
+    <button id="btnImport" title="Charger ma progression (fichier .json)">⬆<span class="t"> Charger ma progression</span></button>
+  </div>
+  <div class="stats">
+    <div class="stat"><span class="lbl">Page</span><div class="meter" id="mPage"><i class="k"></i><i class="m"></i><i class="u"></i></div><span class="txt" id="tPage">–</span></div>
+    <div class="stat"><span class="lbl">Texte<span class="t"> entier</span></span><div class="meter" id="mDoc"><i class="k"></i><i class="m"></i><i class="u"></i></div><span class="txt" id="tDoc">–</span></div>
+  </div>
+</header>
+
+<main>
+  <div class="doc-head">
+    <div class="doc-title" id="docTitle">—</div>
+    <select id="chapSel" title="Chapitre" style="max-width:220px;display:none"></select>
+    <span class="opt-label" style="color:var(--muted)">Furigana</span>
+    <select id="furiSel" title="Furigana">
+      <option value="none">Aucun</option>
+      <option value="notknown">Mots non connus</option>
+      <option value="all">Tous</option>
+    </select>
+    <button id="fsMinus" title="Réduire le texte">A−</button>
+    <button id="fsPlus" title="Agrandir le texte">A+</button>
+    <button id="btnTheme" title="Thème clair / sombre">◐</button>
+  </div>
+
+  <div class="reader" id="reader"></div>
+
+  <div class="pager">
+    <button id="prev">← Précédent</button>
+    <span class="pnum" id="pnum">–</span>
+    <button id="next">Suivant →</button>
+  </div>
+  <div class="actions">
+    <button id="btnRest" class="primary" title="Tous les mots jamais marqués de cette page deviennent « Connu »">✓ Mots non marqués de la page → Connu</button>
+    <button id="btnVocab">📝 Vocabulaire du texte</button>
+  </div>
+  <div class="legend">
+    <span><i class="sw" style="background:var(--paper)"></i>Connu</span>
+    <span><i class="sw" style="background:var(--mid-bg)"></i>Moyen</span>
+    <span><i class="sw" style="background:var(--unk-bg)"></i>Pas connu</span>
+    <span><i class="sw" style="background:var(--new-bg)"></i>Jamais marqué (compté « pas connu »)</span>
+  </div>
+  <div class="hint touch-only">Touche un mot pour le menu · Glisse le doigt ← → pour changer de page</div>
+  <div class="hint mouse-only">Clic sur un mot = menu · Survol + <kbd>1</kbd> Connu <kbd>2</kbd> Moyen <kbd>3</kbd> Pas connu · <kbd>←</kbd> <kbd>→</kbd> pages</div>
+</main>
+
+<div id="pop">
+  <div class="big" id="popWord"></div>
+  <div class="meta" id="popMeta"></div>
+  <div class="btns">
+    <button class="b3" data-s="3">⚪ Connu</button>
+    <button class="b2" data-s="2">🟠 Moyen</button>
+    <button class="b1" data-s="1">🔴 Pas connu</button>
+  </div>
+  <div id="popInfo"></div>
+  <div class="links" id="popLinks"></div>
+</div>
+
+<div class="modal" id="mPaste"><div class="box">
+  <h2>Coller un texte japonais</h2>
+  <input type="text" id="pasteTitle" placeholder="Titre (facultatif)">
+  <textarea id="pasteText" placeholder="ここに日本語の文章を貼り付けてください…"></textarea>
+  <div class="row"><button data-close>Annuler</button><button class="primary" id="pasteGo">Lire ce texte</button></div>
+</div></div>
+
+<div class="modal" id="mLib"><div class="box">
+  <h2>Bibliothèque</h2>
+  <div id="libList"></div>
+  <div class="row"><button data-close>Fermer</button></div>
+</div></div>
+
+<div class="modal" id="mVocab"><div class="box">
+  <h2>Vocabulaire du texte</h2>
+  <div class="vocab-tabs" id="vTabs">
+    <button data-f="todo" class="on">À apprendre</button>
+    <button data-f="1">Pas connu</button>
+    <button data-f="2">Moyen</button>
+    <button data-f="0">Jamais marqué</button>
+    <button data-f="3">Connu</button>
+  </div>
+  <div class="vlist" id="vList"></div>
+  <div class="row"><button id="vCopy">Copier la liste</button><button data-close>Fermer</button></div>
+</div></div>
+
+<div id="toast"><span id="toastMsg"></span><button id="toastBtn" style="display:none">Annuler</button></div>
+<div id="drop">Dépose ton fichier .txt / .epub / .json ici</div>
+<input type="file" id="fileText" accept=".txt,.epub,text/plain,application/epub+zip" hidden>
+<input type="file" id="fileJson" accept=".json,application/json" hidden>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const esc = s => s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* ---------------- Stockage des mots (localStorage) ---------------- */
+const WKEY = 'japreader.words.v1', SKEY = 'japreader.settings.v1';
+let words = {};
+try { words = JSON.parse(localStorage.getItem(WKEY) || '{}') || {}; } catch (e) { words = {}; }
+const isNarrow = () => window.matchMedia('(max-width:640px)').matches;
+const isTouch = window.matchMedia('(pointer:coarse)').matches;
+let settings = { furi: 'notknown', fs: 0, theme: '' }; // fs 0 = taille auto selon l'écran
+try { Object.assign(settings, JSON.parse(localStorage.getItem(SKEY) || '{}')); } catch (e) {}
+let saveTimer = null;
+function saveWords() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    try { localStorage.setItem(WKEY, JSON.stringify(words)); }
+    catch (e) { toast('⚠ Impossible de sauvegarder dans le navigateur. Pense à exporter ta progression.'); }
+  }, 300);
+}
+function saveSettings() { try { localStorage.setItem(SKEY, JSON.stringify(settings)); } catch (e) {} }
+const getS = k => (words[k] && words[k].s) || 0;
+function setS(k, s) { if (!s) delete words[k]; else words[k] = { s, t: Date.now() }; }
+
+/* ---------------- Bibliothèque (IndexedDB) ---------------- */
+let dbP = null;
+function db() {
+  if (!dbP) dbP = new Promise((res, rej) => {
+    const r = indexedDB.open('japreader', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('docs', { keyPath: 'id' });
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+  return dbP;
+}
+async function dbOp(mode, fn) {
+  try {
+    const d = await db();
+    return await new Promise((res, rej) => {
+      const tx = d.transaction('docs', mode), st = tx.objectStore('docs');
+      const r = fn(st);
+      tx.oncomplete = () => res(r && r.result);
+      tx.onerror = () => rej(tx.error);
+    });
+  } catch (e) { console.warn('IndexedDB indisponible', e); return null; }
+}
+const dbPut = doc => dbOp('readwrite', st => st.put(doc));
+const dbGet = id => dbOp('readonly', st => st.get(id));
+const dbAll = () => dbOp('readonly', st => st.getAll());
+const dbDel = id => dbOp('readwrite', st => st.delete(id));
+
+/* ---------------- Kuromoji ---------------- */
+let tokenizer = null;
+const tokenizerReady = new Promise((resolve, reject) => {
+  const paths = ['https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/dict/', 'https://unpkg.com/kuromoji@0.1.2/dict/'];
+  let i = 0;
+  const tryNext = () => {
+    if (typeof kuromoji === 'undefined') return reject(new Error('kuromoji.js non chargé (connexion internet ?)'));
+    if (i >= paths.length) return reject(new Error('dictionnaire introuvable'));
+    kuromoji.builder({ dicPath: paths[i++] }).build((err, t) => {
+      if (err) { console.warn(err); tryNext(); } else { tokenizer = t; resolve(t); }
+    });
+  };
+  tryNext();
+});
+tokenizerReady.then(() => $('loading').classList.add('hide'))
+  .catch(e => { $('loadMsg').innerHTML = '❌ Impossible de charger l\'analyseur japonais.<br><small>' + esc(String(e.message || e)) + '<br>Une connexion internet est nécessaire au premier lancement.</small>'; $('loading').querySelector('.spin').remove(); });
+
+const KANJI = /[㐀-鿿豈-﫿々〆ヶ]/;
+const JP = /[぀-ヿ㐀-鿿豈-﫿々ーｦ-ﾟ]/;
+const toHira = s => s.replace(/[ァ-ヶ]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60));
+
+function attaches(n) {
+  if (n.pos === '助動詞') return true;
+  if (n.pos === '助詞' && n.pos_detail_1 === '接続助詞' && /^(て|で|ちゃ|じゃ)$/.test(n.surface_form)) return true;
+  if (n.pos === '動詞' && (n.pos_detail_1 === '非自立' || n.pos_detail_1 === '接尾')) return true;
+  return false;
+}
+// Transforme les tokens kuromoji en « unités » cliquables (verbe + terminaisons regroupés : 見ました)
+function toUnits(text) {
+  const toks = tokenizer.tokenize(text), units = [];
+  for (let i = 0; i < toks.length; i++) {
+    const t = toks[i];
+    const isWord = JP.test(t.surface_form) && t.pos !== '記号' && !(t.pos === '名詞' && t.pos_detail_1 === '数');
+    const base = t.basic_form && t.basic_form !== '*' ? t.basic_form : t.surface_form;
+    const piece = x => ({ s: x.surface_form, r: x.reading ? toHira(x.reading) : '', b: x.basic_form, p: x.pos, f: x.conjugated_form });
+    const u = { word: isWord, key: base, base, pos: t.pos, pos1: t.pos_detail_1, ctype: t.conjugated_type, pieces: [piece(t)] };
+    if (isWord && (t.pos === '動詞' || t.pos === '形容詞')) {
+      while (i + 1 < toks.length && attaches(toks[i + 1])) u.pieces.push(piece(toks[++i]));
+    }
+    applyChoiceReading(u);
+    u.surface = u.pieces.map(p => p.s).join('');
+    u.reading = u.pieces.map(p => p.r || toHira(p.s)).join('');
+    units.push(u);
+  }
+  return units;
+}
+// Si tu as choisi le sens d'un mot non conjugué (ex. 方 → かた), sa lecture suit ce choix
+function applyChoiceReading(u) {
+  if (u.pieces.length !== 1 || u.pieces[0].s !== u.base) return;
+  if (u.pieces[0].origR === undefined) u.pieces[0].origR = u.pieces[0].r; // lecture donnée par Kuromoji
+  const ch = choices[u.base];
+  if (!ch) return;
+  const [kj, kana] = ch.split('|');
+  if (kj === u.base && kana) u.pieces[0].r = kana;
+}
+function rubyHTML(s, r) {
+  if (!KANJI.test(s) || !r || toHira(s) === r) return esc(s);
+  let pre = 0;
+  while (pre < s.length && pre < r.length && !KANJI.test(s[pre]) && toHira(s[pre]) === r[pre]) pre++;
+  let suf = 0;
+  while (suf < s.length - pre && suf < r.length - pre && !KANJI.test(s[s.length - 1 - suf]) && toHira(s[s.length - 1 - suf]) === r[r.length - 1 - suf]) suf++;
+  const core = s.slice(pre, s.length - suf), coreR = r.slice(pre, r.length - suf);
+  if (!coreR) return esc(s);
+  return esc(s.slice(0, pre)) + '<ruby>' + esc(core) + '<rt>' + esc(coreR) + '</rt></ruby>' + esc(s.slice(s.length - suf));
+}
+const unitHTML = (u, furi) => u.pieces.map(p => furi ? rubyHTML(p.s, p.r) : esc(p.s)).join('');
+const wantFuri = s => settings.furi === 'all' || (settings.furi === 'notknown' && s !== 3);
+
+const POS_FR = { '名詞': 'nom', '動詞': 'verbe', '形容詞': 'adjectif en -i', '副詞': 'adverbe', '助詞': 'particule', '助動詞': 'auxiliaire',
+  '連体詞': 'déterminant', '接続詞': 'conjonction', '感動詞': 'interjection', '接頭詞': 'préfixe', 'フィラー': 'mot de remplissage' };
+function posFR(u) {
+  if (u.pos === '名詞' && u.pos1 === '形容動詞語幹') return 'adjectif en -na';
+  if (u.pos === '名詞' && u.pos1 === '固有名詞') return 'nom propre';
+  if (u.pos === '名詞' && u.pos1 === '代名詞') return 'pronom';
+  if (u.pos === '名詞' && u.pos1 === 'サ変接続') return 'nom (+ する)';
+  if (u.pos === '名詞' && u.pos1 === '接尾') return 'suffixe';
+  return POS_FR[u.pos] || u.pos;
+}
+
+/* ---------------- Import de fichiers ---------------- */
+function cleanAozora(t) {
+  return t.replace(/《[^》]*》/g, '').replace(/｜/g, '').replace(/［＃[^］]*］/g, '');
+}
+function textToParas(t) {
+  return cleanAozora(t).split(/\r?\n/).map(l => l.replace(/[\s　]+/g, ' ').trim()).filter(Boolean);
+}
+function decodeText(buf) {
+  for (const enc of ['utf-8', 'shift_jis', 'euc-jp', 'utf-16le']) {
+    try { return new TextDecoder(enc, { fatal: true }).decode(buf).replace(/^﻿/, ''); } catch (e) {}
+  }
+  return new TextDecoder('utf-8').decode(buf);
+}
+function joinPath(base, href) {
+  const parts = (base + href).split('/'), out = [];
+  for (const p of parts) { if (p === '..') out.pop(); else if (p !== '.') out.push(p); }
+  return out.join('/');
+}
+function extractParas(root) {
+  const out = []; let cur = '';
+  const BLOCK = /^(P|DIV|H[1-6]|LI|BLOCKQUOTE|SECTION|ARTICLE|TR|DT|DD|FIGCAPTION|PRE|HEADER|FOOTER|ASIDE|NAV)$/;
+  const flush = () => { const t = cur.replace(/[\s　]+/g, ' ').trim(); if (t) out.push(t); cur = ''; };
+  (function walk(n) {
+    for (const c of n.childNodes) {
+      if (c.nodeType === 3) cur += c.nodeValue;
+      else if (c.nodeType === 1) {
+        const tag = c.tagName.toUpperCase();
+        if (/^(RT|RP|SCRIPT|STYLE|IMG|SVG)$/.test(tag)) continue;
+        if (tag === 'BR') { flush(); continue; }
+        const b = BLOCK.test(tag);
+        if (b) flush();
+        walk(c);
+        if (b) flush();
+      }
+    }
+  })(root);
+  flush();
+  return out;
+}
+async function parseEpub(buf, fallbackTitle) {
+  if (typeof JSZip === 'undefined') throw new Error('JSZip non chargé');
+  const zip = await JSZip.loadAsync(buf);
+  const xml = s => new DOMParser().parseFromString(s, 'application/xml');
+  const cont = zip.file('META-INF/container.xml');
+  if (!cont) throw new Error('EPUB invalide (container.xml manquant)');
+  const opfPath = xml(await cont.async('string')).getElementsByTagName('rootfile')[0].getAttribute('full-path');
+  const base = opfPath.includes('/') ? opfPath.slice(0, opfPath.lastIndexOf('/') + 1) : '';
+  const opf = xml(await zip.file(opfPath).async('string'));
+  const titleEl = opf.getElementsByTagNameNS('*', 'title')[0];
+  const title = (titleEl && titleEl.textContent.trim()) || fallbackTitle;
+  const manifest = {};
+  for (const it of opf.getElementsByTagNameNS('*', 'item')) manifest[it.getAttribute('id')] = it.getAttribute('href');
+  const chapters = [];
+  for (const ref of opf.getElementsByTagNameNS('*', 'itemref')) {
+    const href = manifest[ref.getAttribute('idref')];
+    if (!href) continue;
+    const f = zip.file(joinPath(base, decodeURIComponent(href.split('#')[0])));
+    if (!f) continue;
+    const doc = new DOMParser().parseFromString(await f.async('string'), 'text/html');
+    if (!doc.body) continue;
+    const paras = extractParas(doc.body).filter(p => JP.test(p) || p.length > 0);
+    if (!paras.some(p => JP.test(p))) continue;
+    const h = doc.querySelector('h1,h2,h3');
+    let ct = h ? h.textContent.replace(/\s+/g, ' ').trim() : '';
+    if (!ct) ct = (doc.title || '').trim();
+    if (!ct || ct === title) ct = paras[0].slice(0, 24);
+    chapters.push({ title: ct, paras });
+  }
+  if (!chapters.length) throw new Error('aucun texte trouvé dans cet EPUB');
+  return { title, chapters };
+}
+async function importFile(file) {
+  const name = file.name.replace(/\.[^.]+$/, '');
+  try {
+    const buf = await file.arrayBuffer();
+    let doc;
+    if (/\.epub$/i.test(file.name)) doc = await parseEpub(buf, name);
+    else if (/\.json$/i.test(file.name)) return importProgress(file);
+    else if (!/\.(txt|text|md)$/i.test(file.name) && file.type && !file.type.startsWith('text/')) throw new Error('format non pris en charge (choisis un .txt ou un .epub)');
+    else doc = { title: name, chapters: [{ title: name, paras: textToParas(decodeText(buf)) }] };
+    await openNewDoc(doc);
+  } catch (e) {
+    console.error(e);
+    toast('❌ Import impossible : ' + (e.message || e));
+  }
+}
+async function openNewDoc(d) {
+  const doc = { id: 'd' + Date.now(), title: d.title || 'Sans titre', chapters: d.chapters, added: Date.now(), page: 0 };
+  await dbPut(doc);
+  await openDoc(doc);
+  toast('📖 « ' + doc.title + ' » ajouté à la bibliothèque');
+}
+
+/* ---------------- Lecture / pagination ---------------- */
+const PAGE_CHARS = 1400;
+let cur = null; // {doc, pages:[{ch, paras}], page, units, info:Map, analyzed, job}
+function paginate(doc) {
+  const pages = [];
+  doc.chapters.forEach((ch, ci) => {
+    let page = { ch: ci, paras: [], first: true }, len = 0;
+    const push = () => { if (page.paras.length) pages.push(page); page = { ch: ci, paras: [] }; len = 0; };
+    for (let p of ch.paras) {
+      // découpe les paragraphes très longs sur les 「。」
+      while (p.length > PAGE_CHARS) {
+        let cut = p.lastIndexOf('。', PAGE_CHARS);
+        if (cut < PAGE_CHARS / 3) cut = PAGE_CHARS; else cut++;
+        if (len) push();
+        page.paras.push(p.slice(0, cut)); push();
+        p = p.slice(cut);
+      }
+      if (len + p.length > PAGE_CHARS && len) push();
+      page.paras.push(p); len += p.length;
+    }
+    push();
+  });
+  if (!pages.length) pages.push({ ch: 0, paras: ['（空）'] });
+  return pages;
+}
+async function openDoc(doc) {
+  await tokenizerReady;
+  if (cur && cur.job) cur.job.cancel = true;
+  closeModals(); hidePop();
+  const pages = paginate(doc);
+  cur = { doc, pages, page: Math.min(doc.page || 0, pages.length - 1), units: [], info: new Map(), analyzed: 0, job: { cancel: false } };
+  try { localStorage.setItem('japreader.last', doc.id); } catch (e) {}
+  $('docTitle').textContent = doc.title;
+  const sel = $('chapSel');
+  sel.innerHTML = doc.chapters.map((c, i) => '<option value="' + i + '">' + esc(c.title.slice(0, 40)) + '</option>').join('');
+  sel.style.display = doc.chapters.length > 1 ? '' : 'none';
+  renderPage();
+  analyzeAll(cur);
+}
+function renderPage() {
+  if (!cur) return;
+  hidePop();
+  const pg = cur.pages[cur.page], ch = cur.doc.chapters[pg.ch];
+  const units = [];
+  let html = '';
+  if (pg.first && cur.doc.chapters.length > 1) html += '<div class="ch-title">' + esc(ch.title) + '</div>';
+  for (const p of pg.paras) {
+    html += '<p>';
+    for (const u of toUnits(p)) {
+      if (!u.word) { html += esc(u.surface); continue; }
+      const s = getS(u.key), i = units.push(u) - 1;
+      html += '<span class="w s' + s + '" data-i="' + i + '">' + unitHTML(u, wantFuri(s)) + '</span>';
+    }
+    html += '</p>';
+  }
+  cur.units = units;
+  $('reader').innerHTML = html;
+  $('pnum').textContent = (cur.page + 1) + ' / ' + cur.pages.length;
+  $('prev').disabled = cur.page === 0;
+  $('next').disabled = cur.page >= cur.pages.length - 1;
+  $('chapSel').value = pg.ch;
+  updateStats();
+  if (cur.doc.page !== cur.page) { cur.doc.page = cur.page; dbPut(cur.doc); }
+}
+function goPage(n) {
+  if (!cur) return;
+  n = Math.max(0, Math.min(cur.pages.length - 1, n));
+  if (n === cur.page) return;
+  cur.page = n; renderPage();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+// Analyse en tâche de fond de tout le texte pour les stats globales
+async function analyzeAll(c) {
+  const job = c.job;
+  for (let i = 0; i < c.pages.length; i++) {
+    if (job.cancel) return;
+    for (const p of c.pages[i].paras) {
+      for (const u of toUnits(p)) {
+        if (!u.word) continue;
+        const e = c.info.get(u.key);
+        if (e) e.n++; else c.info.set(u.key, { n: 1, surf: u.surface, read: u.reading, base: u.base });
+      }
+    }
+    c.analyzed = i + 1;
+    if (i % 3 === 2 || i === c.pages.length - 1) { updateStats(); await new Promise(r => setTimeout(r, 0)); }
+  }
+}
+
+/* ---------------- Statistiques ---------------- */
+function setMeter(id, tid, k, m, u, extra) {
+  const tot = k + m + u, el = $(id);
+  const pc = x => tot ? (x / tot * 100) : 0;
+  el.querySelector('.k').style.width = pc(k) + '%';
+  el.querySelector('.m').style.width = pc(m) + '%';
+  el.querySelector('.u').style.width = pc(u) + '%';
+  const [a, b, c] = isNarrow() ? ['% connu · ', '% moy. · ', '% inc.'] : ['% connu · ', '% moyen · ', '% inconnu'];
+  $(tid).textContent = tot ? Math.round(pc(k)) + a + Math.round(pc(m)) + b + Math.round(pc(u)) + c + (extra || '') : '–';
+}
+function updateStats() {
+  if (!cur) return;
+  let k = 0, m = 0, u = 0;
+  for (const x of cur.units) { const s = getS(x.key); if (s === 3) k++; else if (s === 2) m++; else u++; }
+  setMeter('mPage', 'tPage', k, m, u);
+  let K = 0, M = 0, U = 0, uk = 0, um = 0;
+  for (const [key, e] of cur.info) {
+    const s = getS(key);
+    if (s === 3) K += e.n; else if (s === 2) { M += e.n; um++; } else { U += e.n; uk++; }
+  }
+  const done = cur.analyzed >= cur.pages.length;
+  const extra = !done ? ' · analyse ' + Math.round(cur.analyzed / cur.pages.length * 100) + '%…'
+    : isNarrow() ? ' · ' + (uk + um) + '/' + cur.info.size + ' mots à revoir'
+    : ' · ' + cur.info.size + ' mots uniques (' + uk + ' inconnus, ' + um + ' moyens)';
+  setMeter('mDoc', 'tDoc', K, M, U, extra);
+}
+
+/* ---------------- Changement de statut ---------------- */
+function refreshKey(key) {
+  const s = getS(key);
+  for (const el of $('reader').querySelectorAll('.w')) {
+    const u = cur.units[el.dataset.i];
+    if (u.key !== key) continue;
+    el.className = 'w s' + s + (el === selEl ? ' sel' : '');
+    el.innerHTML = unitHTML(u, wantFuri(s));
+  }
+}
+function setStatus(key, s) {
+  setS(key, s); saveWords(); refreshKey(key); updateStats();
+  if (popUnit && popUnit.key === key) markPopBtns();
+}
+
+/* ---------------- Fiches de grammaire (particules, auxiliaires…) ---------------- */
+// say = prononciation, t = rôle, d = explication. Clé « mot|catégorie » prioritaire sur « mot ».
+const GRAM = {
+  'は': { say: 'wa', t: 'Particule de thème', d: 'Indique de quoi on parle : « quant à… ». Se prononce « wa » (et non « ha »). Sert aussi à opposer : 肉は食べる (la viande, ça oui, j\'en mange).' },
+  'が|格助詞': { say: 'ga', t: 'Particule de sujet', d: 'Marque le sujet grammatical, souvent une info nouvelle ou mise en avant (誰が来た？ — qui est venu ?). S\'emploie aussi avec 好き, 分かる, ある, できる… : 猫が好き (j\'aime les chats).' },
+  'が|接続助詞': { say: 'ga', t: 'Conjonction « mais »', d: 'En fin de proposition : « …, mais… ». Plus soutenu que けど. Peut aussi juste adoucir une phrase (すみませんが… = excusez-moi, mais…).' },
+  'を': { say: 'o', t: 'Complément d\'objet direct', d: 'Marque ce sur quoi porte l\'action : パンを食べる (manger du pain). Se prononce « o ». Indique aussi le lieu qu\'on traverse ou quitte : 道を歩く (marcher dans la rue), 家を出る (sortir de la maison).' },
+  'に': { say: 'ni', t: 'Destination, moment, lieu d\'existence, destinataire', d: 'Destination : 学校に行く. Moment précis : 三時に. Lieu où l\'on se trouve (avec いる/ある) : 家にいる. Destinataire : 友達にあげる. Agent du passif : 先生に褒められた (j\'ai été félicité par le prof).' },
+  'で|格助詞': { say: 'de', t: 'Lieu de l\'action, moyen, cause', d: 'Où se passe l\'action : 公園で遊ぶ (jouer au parc). Moyen : バスで行く, 日本語で話す. Cause : 病気で休む. Limite / ensemble : 三人で (à trois), 全部で (en tout).' },
+  'へ': { say: 'e', t: 'Direction « vers »', d: 'Indique la direction : 東京へ行く. Se prononce « e ». Proche de に, mais insiste sur le trajet plutôt que l\'arrivée.' },
+  'と|格助詞': { say: 'to', t: '« et » / « avec » / citation', d: 'Liste complète : AとB (A et B). Accompagnement : 友達と行く (aller avec un ami). Citation avant 言う / 思う : 行くと思う (je pense y aller).' },
+  'と|並立助詞': { say: 'to', t: '« et » (liste complète)', d: 'AとB = A et B (et rien d\'autre). Pour une liste non exhaustive on utilise や.' },
+  'と|接続助詞': { say: 'to', t: '« quand / dès que » (condition)', d: 'Après un verbe : conséquence automatique ou habituelle. 春になると暖かくなる (quand arrive le printemps, il fait plus doux).' },
+  'も': { say: 'mo', t: '« aussi » / « même »', d: 'Remplace は, が ou を : 私も行く (moi aussi j\'y vais). Avec une négation : 何も食べない (ne rien manger du tout). Après une quantité : 三時間も (pas moins de 3 heures !).' },
+  'の|連体化': { say: 'no', t: 'Lien entre deux noms (« de »)', d: '「A の B」 = « le B de A » : 私の本 (mon livre), 日本の車 (une voiture japonaise). Attention, l\'ordre est inversé par rapport au français.' },
+  'の|格助詞': { say: 'no', t: 'Sujet dans une proposition relative', d: 'Remplace が dans une proposition qui décrit un nom : 母の作った料理 (le plat que ma mère a préparé).' },
+  'の|終助詞': { say: 'no', t: 'Fin de phrase : explication / question douce', d: 'Familier. Affirmatif : explique ou insiste (行くの = c\'est que j\'y vais). Interrogatif : question adoucie (行くの？).' },
+  'の': { say: 'no', t: 'Possession / nominalisation', d: '「A の B」 = « le B de A » : 私の本 (mon livre). Après un verbe, le transforme en nom : 読むのが好き (j\'aime lire).' },
+  'から': { say: 'kara', t: '« depuis » / « parce que »', d: 'Après un nom : point de départ (東京から, 九時から). Après une proposition : cause, « parce que » (raison plutôt personnelle / subjective).' },
+  'まで': { say: 'made', t: '« jusqu\'à »', d: 'Limite dans l\'espace ou le temps : 駅まで, 五時まで. までに = « avant, au plus tard ». Peut aussi signifier « même » (子供まで = même les enfants).' },
+  'より': { say: 'yori', t: '« que » (comparaison)', d: 'AよりB = B plus que A : 猫より犬が好き (je préfère les chiens aux chats). En style écrit : « depuis / à partir de ».' },
+  'や': { say: 'ya', t: '« et » (liste non exhaustive)', d: 'AやB = A, B, entre autres. Souvent complété par など.' },
+  'か': { say: 'ka', t: 'Question / « ou »', d: 'En fin de phrase : transforme en question (行きますか？). Entre deux noms : « ou » (AかB). Avec un interrogatif : 何か (quelque chose), 誰か (quelqu\'un), いつか (un jour).' },
+  'ね': { say: 'ne', t: 'Fin de phrase « hein / n\'est-ce pas »', d: 'Cherche l\'accord ou partage une impression avec l\'interlocuteur : いい天気ですね (il fait beau, hein).' },
+  'よ': { say: 'yo', t: 'Fin de phrase d\'affirmation', d: 'Apporte une info que l\'autre ne connaît pas, ou insiste : 美味しいよ！ (c\'est bon, je t\'assure !).' },
+  'よね': { say: 'yone', t: 'Fin de phrase « …, pas vrai ? »', d: 'Mélange de よ et ね : affirme tout en demandant confirmation.' },
+  'な|終助詞': { say: 'na', t: 'Fin de phrase : interdiction ou réflexion', d: 'Après un verbe au dictionnaire : interdiction brutale (行くな！ = n\'y va pas !). Sinon, exclamation ou réflexion pour soi (いいな = ce serait bien…).' },
+  'わ': { say: 'wa', t: 'Fin de phrase (féminin / Kansai)', d: 'Adoucit ou souligne une émotion. Plutôt féminin à Tokyo, neutre dans le Kansai.' },
+  'ぞ': { say: 'zo', t: 'Fin de phrase emphatique', d: 'Affirmation forte, style masculin : 行くぞ！ (allez, on y va !).' },
+  'ぜ': { say: 'ze', t: 'Fin de phrase (masculin, familier)', d: 'Proche de ぞ, ton complice : 行こうぜ (allez, on y va).' },
+  'さ': { say: 'sa', t: 'Particule familière', d: 'En fin de phrase : affirmation détachée. En milieu de phrase : ponctue le discours, comme « tu vois ».' },
+  'かな': { say: 'kana', t: '« je me demande… »', d: 'Doute ou réflexion pour soi : 来るかな (je me demande s\'il va venir).' },
+  'けど': { say: 'kedo', t: '« mais » / « alors que »', d: 'Opposition, ou phrase laissée en suspens pour adoucir. Variantes plus polies : けれど, けれども.' },
+  'けれど': { say: 'keredo', t: '« mais » / « bien que »', d: 'Version un peu plus soutenue de けど.' },
+  'けれども': { say: 'keredomo', t: '« mais » / « bien que »', d: 'Version la plus polie de けど.' },
+  'ので': { say: 'node', t: '« comme / étant donné que »', d: 'Cause présentée comme objective. Plus doux et plus poli que から : 雨なので行きません.' },
+  'のに': { say: 'noni', t: '« alors que / pourtant »', d: 'Opposition avec surprise, reproche ou regret : 勉強したのに… (alors que j\'avais révisé…). Peut aussi signifier « pour (faire) ».' },
+  'ば': { say: 'ba', t: 'Conditionnel « si »', d: 'Forme en -ba : 練習すれば上手になる (si tu t\'entraînes, tu progresseras).' },
+  'て': { say: 'te', t: 'Forme en -te (liaison)', d: 'Relie des actions (« et puis »), indique la manière ou la cause. Base de nombreuses formes : 〜ている, 〜てください, 〜てもいい…' },
+  'ても': { say: 'temo', t: '« même si »', d: '雨が降っても行く (j\'irai même s\'il pleut). 〜てもいい = « on peut… ».' },
+  'でも|副助詞': { say: 'demo', t: '« même » / « ou quelque chose »', d: '« même » : 子供でも分かる. Suggestion vague : お茶でも飲む？ (on boit un thé ou autre ?). Avec un interrogatif : 何でも (n\'importe quoi).' },
+  'し': { say: 'shi', t: '« et en plus » (raisons)', d: 'Accumule des raisons : 高いし、遠いし… (c\'est cher, et en plus c\'est loin…).' },
+  'だけ': { say: 'dake', t: '« seulement »', d: 'Limite, sens neutre : 一つだけ (un seul). できるだけ = autant que possible.' },
+  'しか': { say: 'shika', t: '« ne… que »', d: 'Toujours suivi d\'une négation : 一つしかない (il n\'y en a qu\'un). Plus fort et plus négatif que だけ.' },
+  'ばかり': { say: 'bakari', t: '« rien que » / « venir de »', d: '« ne faire que » : 遊んでばかり (ne faire que jouer). Après た : « venir juste de » (食べたばかり).' },
+  'ほど': { say: 'hodo', t: '« au point de » / « environ »', d: 'Degré : AほどBない = pas aussi B que A. Approximation : 十分ほど (une dizaine de minutes).' },
+  'くらい': { say: 'kurai', t: '« environ » / « au point de »', d: 'Approximation : 一時間くらい. Degré : 泣きたいくらい (au point d\'avoir envie de pleurer).' },
+  'ぐらい': { say: 'gurai', t: '« environ » / « au point de »', d: 'Variante de くらい.' },
+  'など': { say: 'nado', t: '« etc. » / « par exemple »', d: 'Liste non exhaustive, ou relativise par modestie : 私など (quelqu\'un comme moi).' },
+  'って': { say: 'tte', t: 'Citation ou thème (oral)', d: 'Version parlée de と (citation : 行くって = il dit qu\'il vient) ou de は (日本って… = le Japon, c\'est…).' },
+  'とか': { say: 'toka', t: '« ou des trucs comme »', d: 'Énumération floue, familière : 映画とか見る (regarder des films, des trucs comme ça).' },
+  'ながら': { say: 'nagara', t: '« tout en »', d: 'Deux actions simultanées : 音楽を聞きながら勉強する (étudier en écoutant de la musique).' },
+  'たり': { say: 'tari', t: '« entre autres »', d: '〜たり〜たりする : faire des choses comme A et B (読んだり書いたりする).' },
+  'こそ': { say: 'koso', t: '« justement / c\'est bien… »', d: 'Mise en relief forte : 今こそ (c\'est maintenant ou jamais), こちらこそ (c\'est moi qui vous remercie).' },
+  'さえ': { say: 'sae', t: '« même »', d: 'Cas extrême : 名前さえ知らない (je ne connais même pas son nom). 〜さえ〜ば = « il suffit que ».' },
+  'ずつ': { say: 'zutsu', t: '« chacun / petit à petit »', d: 'Répartition égale : 少しずつ (petit à petit), 一つずつ (un par un).' },
+  'だって': { say: 'datte', t: '« parce que / même »', d: 'En début de phrase : « mais c\'est que… » (justification). Après un nom : « même ».' },
+  // copules / auxiliaires seuls
+  'だ': { say: 'da', t: 'Copule « être » (neutre)', d: '「A は B だ」 = A est B. Forme familière de です. Passé : だった. Négatif : じゃない / ではない.' },
+  'です': { say: 'desu', t: 'Copule « être » (poli)', d: 'Rend la phrase polie. Passé : でした. Négatif : ではありません / じゃないです. Le « u » final est presque muet : « dess ».' },
+  'ます': { say: 'masu', t: 'Terminaison polie des verbes', d: 'Forme polie (passé : ました, négatif : ません, invitation : ましょう).' },
+  'ない|助動詞': { say: 'nai', t: 'Négation', d: 'Rend le verbe négatif : 食べない (ne pas manger).' },
+  'みたい': { say: 'mitai', t: '« on dirait / comme »', d: 'Ressemblance ou supposition (familier) : 夢みたい (on dirait un rêve).' },
+  'らしい': { say: 'rashii', t: '« il paraît / typique de »', d: 'Ouï-dire : 来るらしい (il paraît qu\'il vient). Après un nom : « digne de », 男らしい (viril).' },
+  'た|助動詞': { say: 'ta', t: 'Passé / accompli', d: 'Marque le passé ou une action accomplie.' },
+  // noms grammaticaux (非自立)
+  'こと|非自立': { say: 'koto', t: 'Nominalisateur « le fait de »', d: 'Transforme une action en nom : 泳ぐことができる (savoir nager). 〜たことがある = avoir déjà fait.' },
+  'もの|非自立': { say: 'mono', t: '« chose » abstraite / explication', d: 'Nominalise, ou donne une explication générale : 子供はそういうものだ (les enfants, c\'est comme ça).' },
+  'よう|非自立': { say: 'you', t: '« manière / comme / pour que »', d: 'ようだ = on dirait que. ように = pour que / comme. ようにする = faire en sorte de.' },
+  'ため|非自立': { say: 'tame', t: '« pour / à cause de »', d: 'But : 合格するために (pour réussir). Cause : 雨のため (à cause de la pluie).' },
+  'はず|非自立': { say: 'hazu', t: '« devrait / normalement »', d: 'Attente logique : もう着いたはずだ (il devrait déjà être arrivé).' },
+  'つもり|非自立': { say: 'tsumori', t: '« avoir l\'intention de »', d: '行くつもりです (j\'ai l\'intention d\'y aller).' },
+  'わけ|非自立': { say: 'wake', t: '« raison / ce qui veut dire que »', d: 'わけだ = c\'est pour ça que. わけではない = ce n\'est pas que… わけがない = impossible que.' },
+  'ところ|非自立': { say: 'tokoro', t: '« moment où »', d: '〜るところ = sur le point de. 〜ているところ = en train de. 〜たところ = venir de.' },
+  'まま|非自立': { say: 'mama', t: '« tel quel / en l\'état »', d: '靴を履いたまま (en gardant ses chaussures).' },
+  'の|非自立': { say: 'no', t: 'Nominalisateur / explication', d: '読むのが好き (j\'aime lire). のだ / んです = donne une explication ou insiste.' },
+  'ん|非自立': { say: 'n', t: 'Explication (んだ / んです)', d: 'Forme orale de の : 行くんです (c\'est que j\'y vais). Donne une explication ou demande des précisions.' },
+  'そう|特殊': { say: 'sou', t: '« avoir l\'air de / il paraît »', d: '美味しそう (ça a l\'air bon). Après une forme complète : そうだ = il paraît que.' }
+};
+function grammarNote(u) {
+  return GRAM[u.base + '|' + u.pos1] || GRAM[u.base + '|' + u.pos] || ((u.pos === '助詞' || u.pos === '助動詞' || u.pos1 === '非自立') ? GRAM[u.base] : null) || null;
+}
+const isGrammatical = u => u.pos === '助詞' || u.pos === '助動詞' || u.pos1 === '非自立';
+
+// Explication des terminaisons collées au verbe / adjectif
+const AUX_FR = {
+  'ます': 'poli', 'です': 'poli', 'た': 'passé / accompli', 'だ': 'passé / accompli',
+  'ない': 'négation', 'ぬ': 'négation', 'ん': 'négation', 'ず': 'négation (écrit)',
+  'たい': 'envie de… (vouloir)', 'たがる': '(il/elle) a envie de', 'て': 'forme en -te', 'で': 'forme en -te',
+  'ちゃ': 'forme en -te (familier)', 'じゃ': 'forme en -te (familier)',
+  'いる': 'en cours / état (〜ている)', 'てる': 'en cours / état (familier)', 'ある': 'état résultant (〜てある)',
+  'しまう': 'action finie / regret (〜てしまう)', 'ちゃう': 'action finie / regret (familier)', 'じゃう': 'action finie / regret (familier)',
+  'おく': 'à l\'avance (〜ておく)', 'とく': 'à l\'avance (familier)', 'みる': 'essayer de (〜てみる)',
+  'いく': 'continuer / s\'éloigner (〜ていく)', 'くる': 'venir / commencer à (〜てくる)',
+  'くれる': 'pour moi (〜てくれる)', 'くださる': 'pour moi, poli (〜てくださる)', 'もらう': 'se faire faire (〜てもらう)', 'あげる': 'pour quelqu\'un (〜てあげる)',
+  'れる': 'passif / potentiel / respect', 'られる': 'passif / potentiel / respect',
+  'せる': 'causatif (faire faire / laisser)', 'させる': 'causatif (faire faire / laisser)',
+  'う': 'volitif (« faisons » / « je vais »)', 'よう': 'volitif (« faisons » / « je vais »)', 'まい': 'volonté négative',
+  'らしい': 'il paraît que', 'そうだ': 'il paraît / a l\'air', 'ようだ': 'on dirait que', 'べし': 'devoir', 'すぎる': 'trop (〜すぎる)',
+  'やすい': 'facile à', 'にくい': 'difficile à', '始める': 'commencer à', '出す': 'se mettre à', '続ける': 'continuer à', '終わる': 'finir de'
+};
+function conjChips(u) {
+  const chips = [], seen = new Set();
+  const head = u.pieces[0];
+  if (head.f && head.f.startsWith('命令')) chips.push('<span class="chip"><b>' + esc(head.s) + '</b> → impératif</span>');
+  for (const p of u.pieces.slice(1)) {
+    const lab = AUX_FR[p.b] || AUX_FR[p.s];
+    if (!lab || seen.has(lab)) { if (!lab) chips.push('<span class="chip"><b>' + esc(p.s) + '</b></span>'); continue; }
+    seen.add(lab);
+    chips.push('<span class="chip"><b>' + esc(p.s) + '</b> → ' + esc(lab) + '</span>');
+  }
+  return chips;
+}
+
+/* ---------------- Romaji & accent ---------------- */
+const ROMA = { あ:'a',い:'i',う:'u',え:'e',お:'o',か:'ka',き:'ki',く:'ku',け:'ke',こ:'ko',さ:'sa',し:'shi',す:'su',せ:'se',そ:'so',た:'ta',ち:'chi',つ:'tsu',て:'te',と:'to',な:'na',に:'ni',ぬ:'nu',ね:'ne',の:'no',は:'ha',ひ:'hi',ふ:'fu',へ:'he',ほ:'ho',ま:'ma',み:'mi',む:'mu',め:'me',も:'mo',や:'ya',ゆ:'yu',よ:'yo',ら:'ra',り:'ri',る:'ru',れ:'re',ろ:'ro',わ:'wa',ゐ:'i',ゑ:'e',を:'o',ん:'n',が:'ga',ぎ:'gi',ぐ:'gu',げ:'ge',ご:'go',ざ:'za',じ:'ji',ず:'zu',ぜ:'ze',ぞ:'zo',だ:'da',ぢ:'ji',づ:'zu',で:'de',ど:'do',ば:'ba',び:'bi',ぶ:'bu',べ:'be',ぼ:'bo',ぱ:'pa',ぴ:'pi',ぷ:'pu',ぺ:'pe',ぽ:'po',ぁ:'a',ぃ:'i',ぅ:'u',ぇ:'e',ぉ:'o',ゔ:'vu',ゃ:'ya',ゅ:'yu',ょ:'yo' };
+function romaji(s) {
+  const h = toHira(s); let out = '', dbl = false;
+  for (let i = 0; i < h.length; i++) {
+    const c = h[i], n = h[i + 1];
+    let r;
+    if (c === 'っ') { dbl = true; continue; }
+    if (n && 'ゃゅょ'.includes(n) && ROMA[c] && c !== 'ん') {
+      const b = ROMA[c], v = { ゃ: 'a', ゅ: 'u', ょ: 'o' }[n];
+      r = /^(shi|chi|ji)$/.test(b) ? b.slice(0, -1) + v : b.slice(0, -1) + 'y' + v; i++;
+    } else if (n && 'ぁぃぅぇぉ'.includes(n) && ROMA[c]) {
+      r = ROMA[c].slice(0, -1) + ROMA[n]; i++;
+    } else if (c === 'ー') { const m = out.match(/[aeiou]$/); r = m ? m[0] : '-'; }
+    else r = ROMA[c] || c;
+    if (dbl) { r = (r.startsWith('ch') ? 't' : r[0]) + r; dbl = false; }
+    out += r;
+  }
+  return out;
+}
+function pitchHTML(parts) {
+  if (!parts || !parts.length) return '';
+  return '<span class="pitch">' + parts.map((p, i) => {
+    const nx = parts[i + 1];
+    const cls = (p.high ? 'hi' : '') + (p.high && nx && !nx.high ? ' dn' : '');
+    return '<span class="' + cls + '">' + esc(p.part) + '</span>';
+  }).join('') + '</span>';
+}
+
+/* ---------------- Dictionnaire en ligne (Jotoba : JMdict, sens FR + EN) ---------------- */
+const DKEY = 'japreader.dict.v2', CKEY = 'japreader.choice.v1';
+let dcache = {}, choices = {};
+try { localStorage.removeItem('japreader.dict.v1'); } catch (e) {}
+try { dcache = JSON.parse(localStorage.getItem(DKEY) || '{}') || {}; } catch (e) {}
+try { choices = JSON.parse(localStorage.getItem(CKEY) || '{}') || {}; } catch (e) {}
+const saveChoices = () => { try { localStorage.setItem(CKEY, JSON.stringify(choices)); } catch (e) {} };
+const entryId = w => (w.kanji || '') + '|' + w.kana;
+// Renvoie toutes les entrées du dictionnaire qui s'écrivent comme le mot (ex. する → 為る, 擦る, 刷る…)
+async function lookup(word) {
+  if (dcache[word]) return dcache[word];
+  const r = await fetch('https://jotoba.de/api/search/words', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query: word, language: 'French', no_english: false })
+  });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  const ws = ((await r.json()).words) || [];
+  const hira = toHira(word);
+  const cands = ws.filter(x => x.reading.kanji === word || x.reading.kana === hira).slice(0, 10).map(w => ({
+    kana: w.reading.kana, kanji: w.reading.kanji || '', common: !!w.common, jlpt: w.jlpt_lvl || 0,
+    pitch: w.pitch || null, audio: w.audio || '', senses: w.senses || [] }));
+  const res = { cands };
+  dcache[word] = res;
+  const keys = Object.keys(dcache);
+  if (keys.length > 3000) for (const k of keys.slice(0, keys.length - 3000)) delete dcache[k];
+  try { localStorage.setItem(DKEY, JSON.stringify(dcache)); } catch (e) { dcache = { [word]: res }; }
+  return res;
+}
+const NOTE_FR = {
+  UsuallyWrittenInKana: 's\'écrit généralement en kana', Honorific: 'honorifique (respect)', Humble: 'humble (modestie)', Polite: 'poli',
+  Colloquialism: 'familier', Slang: 'argot', Archaism: 'archaïque', Vulgar: 'vulgaire', Derogatory: 'péjoratif', Abbreviation: 'abréviation',
+  Onomatopoeic: 'onomatopée', IdiomaticExpression: 'expression idiomatique', Formal: 'soutenu', Literary: 'littéraire', Children: 'langage enfantin',
+  MaleLanguage: 'langage masculin', FemaleLanguage: 'langage féminin', Proverb: 'proverbe', Rare: 'rare', Jocular: 'humoristique', Dated: 'vieilli',
+  HonorificLanguage: 'langage honorifique (respect)', HumbleLanguage: 'langage humble (modestie)', PoliteLanguage: 'langage poli',
+  Poetical: 'poétique', Familiar: 'familier', Obsolete: 'obsolète', Euphemistic: 'euphémisme', Sensitive: 'sujet sensible', Yojijukugo: 'expression en 4 kanji'
+};
+const NOTE_RX = [
+  [/\bof things,? not people\b/gi, 'pour des choses, pas des personnes'], [/\bnot of people\b/gi, 'pas pour des personnes'],
+  [/\bof things\b/gi, 'pour des choses'], [/\bnot people\b/gi, 'pas des personnes'], [/\bof (a )?(people|person)\b/gi, 'pour des personnes'],
+  [/\bof an? animals?\b/gi, 'pour un animal'], [/\bof (a )?wom[ae]n\b/gi, 'pour une femme'], [/\bof (a )?m[ae]n\b/gi, 'pour un homme'],
+  [/\bof time\b/gi, 'pour le temps'], [/\bof weather\b/gi, 'pour la météo'], [/\bof food\b/gi, 'pour la nourriture'],
+  [/\bbefore a negative form\b/gi, 'devant une forme négative'], [/\bwith (a )?neg(ative|\.)? ?(sentence|verb|form)?\b/gi, 'avec une négation'],
+  [/\bis more emphatic\b/gi, 'est plus emphatique'], [/\bemphatic\b/gi, 'emphatique'], [/\bcolloquial\b/gi, 'familier'],
+  [/\busu\.? /gi, 'généralement '], [/\bhumble\b/gi, 'humble'], [/\bhonorific\b/gi, 'honorifique'], [/\bpolite\b/gi, 'poli'],
+  [/\bafter the -te form of a verb\b/gi, 'après un verbe à la forme en -te'], [/\bafter the -masu stem of a verb\b/gi, 'après le radical en -masu d\'un verbe'],
+  [/^also /i, 'aussi '], [/^esp\. /i, 'surtout '], [/^orig\. /i, 'à l\'origine '],
+  [/\bafter a noun\b/gi, 'après un nom'], [/\bafter a verb\b/gi, 'après un verbe'], [/\bplain form\b/gi, 'forme neutre']
+];
+function noteFR(s) { if (!s) return ''; if (NOTE_FR[s]) return NOTE_FR[s]; let t = s; for (const [rx, fr] of NOTE_RX) t = t.replace(rx, fr); return t; }
+function verbInfo(senses) {
+  const out = new Set();
+  for (const s of senses) for (const p of (s.pos || [])) {
+    if (typeof p !== 'object') continue;
+    if (p.Verb === 'Ichidan') out.add('verbe ichidan (groupe 2)');
+    else if (p.Verb === 'Transitive') out.add('transitif (prend un を)');
+    else if (p.Verb === 'Intransitive') out.add('intransitif');
+    else if (p.Verb && typeof p.Verb === 'object' && p.Verb.Godan) out.add('verbe godan (groupe 1)');
+    else if (p.Verb && typeof p.Verb === 'object' && p.Verb.Irregular) out.add('verbe irrégulier');
+    else if (p.Adjective === 'Na') out.add('adjectif en -na');
+    else if (p.Adjective === 'No') out.add('peut prendre の');
+  }
+  return [...out];
+}
+/* Choix de la bonne entrée quand plusieurs mots s'écrivent pareil.
+   Indices donnés par Kuromoji : type de conjugaison (する = irrégulier, 擦る = godan),
+   catégorie (verbe, nom…), lecture réelle dans le texte (方 : ほう ou かた), mot écrit en kana. */
+const POS_EN = { '動詞': '"Verb"', '形容詞': 'Keiyoushi', '副詞': '"Adverb"', '接続詞': '"Conjunction"', '感動詞': '"Interjection"', '連体詞': 'PreNoun', '名詞': '"Noun"', '助詞': '"Particle"' };
+const CTYPE_EN = [['一段', '"Ichidan"'], ['五段', '"Godan"'], ['サ変', '"Suru"'], ['カ変', '"Kuru"']];
+function scoreEntry(w, u, i) {
+  const pos = JSON.stringify(w.senses.map(s => s.pos || []));
+  const hira = toHira(u.base), kanaLemma = !KANJI.test(u.base);
+  let s = -i * 0.5;
+  if (w.kanji === u.base || (!w.kanji && w.kana === hira)) s += 10;
+  if (kanaLemma && w.senses.some(x => x.misc === 'UsuallyWrittenInKana')) s += 6;
+  if (w.common) s += 3;
+  const p = POS_EN[u.pos];
+  if (p) s += pos.includes(p) ? 4 : -4;
+  if (u.pos1 === '形容動詞語幹' && pos.includes('"Na"')) s += 3;
+  for (const [ja, en] of CTYPE_EN) if ((u.ctype || '').startsWith(ja)) s += pos.includes(en) ? 8 : -8;
+  const hr = u.pieces[0].r;
+  if (!kanaLemma && hr) {
+    if (u.pieces[0].s === u.base) s += w.kana === hr ? 8 : -4;
+    else { let k = 0; while (k < hr.length && k < w.kana.length && hr[k] === w.kana[k]) k++; s += Math.min(k, 3) * 2; }
+  }
+  return s;
+}
+function rankEntries(d, u) {
+  const ranked = d.cands.map((w, i) => ({ w, sc: scoreEntry(w, u, i) })).sort((a, b) => b.sc - a.sc).map(x => x.w);
+  const ch = choices[u.key];
+  if (ch) { const k = ranked.findIndex(w => entryId(w) === ch); if (k > 0) ranked.unshift(ranked.splice(k, 1)[0]); }
+  return ranked;
+}
+function firstGloss(w) {
+  // les sens anglais sont classés par importance, la liste française non (ordre alphabétique)
+  const en = w.senses.find(s => s.language === 'English'), fr = w.senses.find(s => s.language === 'French');
+  return (en || fr) ? (en || fr).glosses.slice(0, 2).join(', ') : '';
+}
+function dictBlock(d, u) {
+  if (!d.cands || !d.cands.length) return '<div class="info-h">Dictionnaire</div><span class="muted">Pas trouvé dans le dictionnaire (nom propre, mot rare ou forme particulière ?).</span>';
+  const ranked = rankEntries(d, u);
+  let h = dictHTML(ranked[0], u);
+  if (ranked.length > 1) {
+    h += '<div class="alts"><div class="muted" style="font-size:12px;margin:8px 0 4px">Pas le bon mot ? Mots qui s\'écrivent pareil :</div>';
+    for (const w of ranked.slice(1, 7)) {
+      h += '<button class="alt" data-pick="' + esc(entryId(w)) + '"><b>' + esc(w.kanji || w.kana) + '</b>' + (w.kanji ? '【' + esc(w.kana) + '】' : '') + ' <span class="muted">' + esc(firstGloss(w)) + '</span></button>';
+    }
+    if (choices[u.key]) h += '<button class="alt" data-pick=""><span class="muted">↺ Revenir au choix automatique</span></button>';
+    h += '</div>';
+  }
+  return h;
+}
+function dictHTML(d, u) {
+  const fr = [], en = [];
+  for (const s of d.senses) (s.language === 'French' ? fr : s.language === 'English' ? en : []).push(s);
+  let h = '<div class="info-h">Dictionnaire</div><div>';
+  h += d.pitch ? pitchHTML(d.pitch) : '<span class="pitch">' + esc(d.kana) + '</span>';
+  if (d.kanji && d.kanji !== u.base) h += ' <span class="ex">' + esc(d.kanji) + '</span>';
+  if (choices[u.key] === entryId(d)) h += '<span class="badge" style="background:var(--muted)">choisi par toi</span>';
+  if (d.common) h += '<span class="badge">courant</span>';
+  if (d.jlpt) h += '<span class="badge" style="background:var(--accent)">JLPT N' + d.jlpt + '</span>';
+  if (d.audio) h += '<button class="play" data-audio="' + esc(d.audio) + '">🔊</button>';
+  h += '</div>';
+  const vi = verbInfo(en);
+  if (vi.length) h += '<div class="muted">' + esc(vi.join(' · ')) + '</div>';
+  const frG = [...new Set(fr.flatMap(s => s.glosses))];
+  if (frG.length) h += '<div class="fr" style="margin-top:4px">🇫🇷 ' + esc(frG.join(', ')) + (frG.length > 2 ? ' <span class="muted" style="font-size:11.5px">(sans ordre d\'importance)</span>' : '') + '</div>';
+  if (en.length) {
+    h += '<div class="muted" style="margin-top:6px;font-size:12px">' + (frG.length ? 'Sens détaillés, du plus courant au plus rare (anglais) :' : 'Pas de traduction française, sens en anglais (du plus courant au plus rare) :') + '</div><ol class="senses">';
+    for (const s of en.slice(0, 6)) {
+      const notes = [s.information, typeof s.misc === 'string' ? s.misc : ''].filter(Boolean).map(noteFR);
+      h += '<li>' + esc(s.glosses.join(', ')) + (notes.length ? ' <span class="note">⚠ ' + esc(notes.join(' · ')) + '</span>' : '') + '</li>';
+    }
+    h += '</ol>';
+    if (en.length > 6) h += '<div class="muted" style="font-size:12px">+ ' + (en.length - 6) + ' autres sens (voir Jisho)</div>';
+  }
+  return h;
+}
+
+/* ---------------- Pop-up ---------------- */
+let popUnit = null, selEl = null, hoverEl = null;
+function showPop(el) {
+  const u = cur.units[el.dataset.i];
+  if (selEl) selEl.classList.remove('sel');
+  selEl = el; el.classList.add('sel');
+  popUnit = u;
+  $('popWord').innerHTML = u.pieces.map(p => rubyHTML(p.s, p.r)).join('');
+  const g = grammarNote(u);
+  const lemma = u.base !== u.surface ? 'forme de base : <b>' + esc(u.base) + '</b> · ' : '';
+  const say = g ? g.say : romaji(u.reading);
+  const sayNote = g && romaji(u.reading) !== g.say ? ' (se prononce « ' + esc(g.say) + ' »)' : '';
+  $('popMeta').innerHTML = lemma + esc(u.reading) + ' · <i>' + esc(say) + '</i>' + sayNote + ' · ' + esc(posFR(u));
+  renderInfo(u, g);
+  const q = encodeURIComponent(u.base);
+  $('popLinks').innerHTML = '<a href="https://jisho.org/search/' + q + '" target="_blank" rel="noopener">Jisho ↗</a>'
+    + '<a href="https://www.deepl.com/translator#ja/fr/' + q + '" target="_blank" rel="noopener">DeepL ↗</a>'
+    + '<a href="https://www.google.com/search?q=' + q + '+%E6%84%8F%E5%91%B3" target="_blank" rel="noopener">Google ↗</a>';
+  markPopBtns();
+  $('pop').classList.add('on');
+  placePop();
+}
+let popSeq = 0;
+function renderInfo(u, g) {
+  const seq = ++popSeq;
+  let h = '';
+  if (g) h += '<div class="info-sec"><div class="info-h">Grammaire</div><div class="gram-t">' + esc(g.t) + '</div><div>' + esc(g.d) + '</div></div>';
+  const chips = conjChips(u);
+  if (chips.length) h += '<div class="info-sec"><div class="info-h">Forme conjuguée</div><div class="conj"><span class="chip"><b>' + esc(u.base) + '</b></span> + ' + chips.join(' + ') + '</div></div>';
+  const wantDict = !g || !isGrammatical(u);
+  if (wantDict) h += '<div class="info-sec" id="dictSec"><span class="muted">🔎 Recherche dans le dictionnaire…</span></div>';
+  $('popInfo').innerHTML = h;
+  $('pop').classList.toggle('wide', wantDict);
+  if (!wantDict) return;
+  lookup(u.base).then(d => {
+    if (seq !== popSeq || !$('dictSec')) return;
+    $('dictSec').innerHTML = dictBlock(d, u); placePop();
+  }).catch(e => {
+    console.warn(e);
+    if (seq !== popSeq || !$('dictSec')) return;
+    $('dictSec').innerHTML = '<span class="muted">Dictionnaire en ligne indisponible (pas de connexion ?). Utilise les liens ci-dessous.</span>';
+  });
+}
+function placePop() {
+  const el = selEl, pop = $('pop');
+  if (!el || !pop.classList.contains('on')) return;
+  const r = el.getBoundingClientRect(), pw = pop.offsetWidth, ph = pop.offsetHeight;
+  if (isNarrow()) {
+    // panneau en bas : on fait remonter le mot s'il est caché dessous
+    const limit = window.innerHeight - ph - 12;
+    if (r.bottom > limit) window.scrollBy({ top: r.bottom - limit + 8, behavior: 'smooth' });
+    return;
+  }
+  let left = r.left + r.width / 2 - pw / 2;
+  left = Math.max(16, Math.min(left, document.documentElement.clientWidth - pw - 16));
+  let top = r.bottom + 8;
+  if (top + ph > window.innerHeight - 8 && r.top - ph - 8 > 70) top = r.top - ph - 8;
+  pop.style.left = (left + window.scrollX) + 'px';
+  pop.style.top = (top + window.scrollY) + 'px';
+}
+function markPopBtns() {
+  const s = getS(popUnit.key);
+  for (const b of $('pop').querySelectorAll('.btns button')) b.classList.toggle('cur', +b.dataset.s === s);
+}
+function hidePop() {
+  $('pop').classList.remove('on'); popUnit = null;
+  if (selEl) selEl.classList.remove('sel'); selEl = null;
+}
+$('reader').addEventListener('click', e => {
+  const el = e.target.closest('.w');
+  if (!el) return hidePop();
+  if (selEl === el) return hidePop();
+  showPop(el);
+});
+$('reader').addEventListener('mouseover', e => { hoverEl = e.target.closest('.w'); });
+$('reader').addEventListener('mouseleave', () => { hoverEl = null; });
+$('pop').addEventListener('click', e => {
+  const pk = e.target.closest('button[data-pick]');
+  if (pk && popUnit) {
+    e.stopPropagation(); // le bouton est remplacé : sans ça, le clic « hors bulle » fermerait la bulle
+    if (pk.dataset.pick) choices[popUnit.key] = pk.dataset.pick; else delete choices[popUnit.key];
+    saveChoices();
+    const u = popUnit, d = dcache[u.base];
+    // met à jour la lecture de toutes les occurrences sur la page
+    for (const x of cur.units) if (x.key === u.key && x.pieces.length === 1) {
+      if (x.pieces[0].origR !== undefined) x.pieces[0].r = x.pieces[0].origR;
+      applyChoiceReading(x);
+      x.reading = x.pieces[0].r || x.pieces[0].s;
+    }
+    refreshKey(u.key);
+    $('popWord').innerHTML = u.pieces.map(p => rubyHTML(p.s, p.r)).join('');
+    $('popMeta').innerHTML = esc(u.reading) + ' · <i>' + esc(romaji(u.reading)) + '</i> · ' + esc(posFR(u));
+    if (d && $('dictSec')) { $('dictSec').innerHTML = dictBlock(d, u); $('pop').scrollTop = 0; }
+    return;
+  }
+  const a = e.target.closest('button[data-audio]');
+  if (a) { new Audio('https://jotoba.de' + a.dataset.audio).play().catch(() => toast('Audio indisponible')); return; }
+  const b = e.target.closest('button[data-s]');
+  if (b && popUnit) { setStatus(popUnit.key, +b.dataset.s); setTimeout(hidePop, 120); }
+});
+document.addEventListener('click', e => {
+  if (!e.target.closest('#pop') && !e.target.closest('.w')) hidePop();
+});
+// Sur mobile, la barre d'adresse qui apparaît/disparaît déclenche « resize » : on ne ferme que si la largeur change
+let lastW = window.innerWidth;
+window.addEventListener('resize', () => { if (window.innerWidth !== lastW) { lastW = window.innerWidth; hidePop(); } });
+
+/* ---------------- Glisser pour changer de page (tactile) ---------------- */
+let swipe = null;
+$('reader').addEventListener('touchstart', e => {
+  if (e.touches.length !== 1) { swipe = null; return; }
+  swipe = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now() };
+}, { passive: true });
+$('reader').addEventListener('touchend', e => {
+  if (!swipe || !cur) return;
+  const t = e.changedTouches[0], dx = t.clientX - swipe.x, dy = t.clientY - swipe.y;
+  const ok = Math.abs(dx) > 70 && Math.abs(dy) < Math.abs(dx) * 0.5 && Date.now() - swipe.t < 700;
+  swipe = null;
+  if (!ok || (window.getSelection && String(window.getSelection()))) return;
+  goPage(cur.page + (dx < 0 ? 1 : -1));
+}, { passive: true });
+
+/* ---------------- Clavier ---------------- */
+document.addEventListener('keydown', e => {
+  if (e.target.matches('input,textarea,select') || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.key === 'Escape') { hidePop(); closeModals(); return; }
+  if (document.querySelector('.modal.on') || !cur) return;
+  const map = { '1': 3, '2': 2, '3': 1, '&': 3, 'é': 2, '"': 1 }; // AZERTY sans Maj aussi
+  if (map[e.key]) {
+    const el = selEl || hoverEl;
+    if (el) { setStatus(cur.units[el.dataset.i].key, map[e.key]); e.preventDefault(); }
+    return;
+  }
+  if (e.key === 'ArrowRight') goPage(cur.page + 1);
+  if (e.key === 'ArrowLeft') goPage(cur.page - 1);
+});
+
+/* ---------------- Boutons ---------------- */
+$('prev').onclick = () => goPage(cur.page - 1);
+$('next').onclick = () => goPage(cur.page + 1);
+$('chapSel').onchange = e => { const c = +e.target.value; const i = cur.pages.findIndex(p => p.ch === c); if (i >= 0) goPage(i); };
+$('btnOpen').onclick = () => $('fileText').click();
+$('fileText').onchange = e => { const f = e.target.files[0]; e.target.value = ''; if (f) importFile(f); };
+$('btnPaste').onclick = () => { $('pasteTitle').value = ''; $('pasteText').value = ''; openModal('mPaste'); setTimeout(() => $('pasteText').focus(), 50); };
+$('pasteGo').onclick = async () => {
+  const t = $('pasteText').value.trim();
+  if (!t) return;
+  const title = $('pasteTitle').value.trim() || t.replace(/\s+/g, '').slice(0, 20) + '…';
+  await openNewDoc({ title, chapters: [{ title, paras: textToParas(t) }] });
+};
+$('btnRest').onclick = () => {
+  if (!cur) return;
+  const keys = [...new Set(cur.units.map(u => u.key))].filter(k => getS(k) === 0);
+  if (!keys.length) return toast('Aucun mot non marqué sur cette page.');
+  for (const k of keys) setS(k, 3);
+  saveWords(); renderPageKeepScroll();
+  toast('✓ ' + keys.length + ' mot' + (keys.length > 1 ? 's' : '') + ' marqué' + (keys.length > 1 ? 's' : '') + ' comme connu', () => {
+    for (const k of keys) if (getS(k) === 3) setS(k, 0);
+    saveWords(); renderPageKeepScroll();
+  });
+};
+function renderPageKeepScroll() { const y = window.scrollY; renderPage(); window.scrollTo(0, y); }
+$('furiSel').onchange = e => { settings.furi = e.target.value; saveSettings(); renderPageKeepScroll(); };
+const curFs = () => settings.fs || (isNarrow() ? 19 : 22);
+function applyFs() { document.documentElement.style.setProperty('--fs', curFs() + 'px'); }
+$('fsMinus').onclick = () => { settings.fs = Math.max(14, curFs() - 2); applyFs(); saveSettings(); };
+$('fsPlus').onclick = () => { settings.fs = Math.min(40, curFs() + 2); applyFs(); saveSettings(); };
+// Sur téléphone, le filtre « accept » grise parfois les .epub dans le sélecteur de fichiers : on l'enlève
+if (isTouch) { $('fileText').removeAttribute('accept'); $('fileJson').removeAttribute('accept'); }
+function applyTheme() { if (settings.theme) document.documentElement.dataset.theme = settings.theme; else delete document.documentElement.dataset.theme; }
+$('btnTheme').onclick = () => {
+  const dark = settings.theme ? settings.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+  settings.theme = dark ? 'light' : 'dark'; applyTheme(); saveSettings();
+};
+
+/* ---------------- Export / import de la progression ---------------- */
+$('btnExport').onclick = () => {
+  const data = { app: 'JapReader', version: 1, exported: new Date().toISOString(), words, choices };
+  const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'japreader-progression-' + new Date().toISOString().slice(0, 10) + '.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  toast('⬇ ' + Object.keys(words).length + ' mots exportés');
+};
+$('btnImport').onclick = () => $('fileJson').click();
+$('fileJson').onchange = e => { const f = e.target.files[0]; e.target.value = ''; if (f) importProgress(f); };
+async function importProgress(file) {
+  try {
+    const data = JSON.parse(await file.text());
+    const w = data && data.words;
+    if (!w || typeof w !== 'object') throw new Error('ce fichier n\'est pas une sauvegarde JapReader');
+    const n = Object.keys(w).length;
+    const replace = Object.keys(words).length > 0 && !confirm(
+      'Charger ' + n + ' mots ?\n\nOK = fusionner avec ta progression actuelle (le statut le plus récent gagne)\nAnnuler = choisir de remplacer');
+    if (replace) {
+      if (!confirm('Remplacer TOUTE ta progression actuelle par celle du fichier ?')) return;
+      words = {};
+    }
+    let added = 0;
+    for (const [k, v] of Object.entries(w)) {
+      const s = typeof v === 'number' ? v : v && v.s;
+      if (![1, 2, 3].includes(s)) continue;
+      const t = (v && v.t) || 0;
+      if (!words[k] || (words[k].t || 0) <= t) { words[k] = { s, t }; added++; }
+    }
+    if (data.choices && typeof data.choices === 'object') {
+      for (const [k, v] of Object.entries(data.choices)) if (typeof v === 'string') choices[k] = v;
+      saveChoices();
+    }
+    saveWords(); if (cur) renderPageKeepScroll();
+    toast('⬆ Progression chargée : ' + added + ' mots mis à jour');
+  } catch (e) { toast('❌ ' + (e.message || e)); }
+}
+
+/* ---------------- Modales ---------------- */
+function openModal(id) { hidePop(); $(id).classList.add('on'); }
+function closeModals() { document.querySelectorAll('.modal.on').forEach(m => m.classList.remove('on')); }
+document.querySelectorAll('.modal').forEach(m => m.addEventListener('click', e => {
+  if (e.target === m || e.target.closest('[data-close]')) closeModals();
+}));
+$('btnLib').onclick = async () => {
+  const docs = (await dbAll()) || [];
+  docs.sort((a, b) => b.added - a.added);
+  const curId = cur && cur.doc.id;
+  $('libList').innerHTML = docs.length ? docs.map(d => {
+    const n = d.chapters.reduce((a, c) => a + c.paras.reduce((x, p) => x + p.length, 0), 0);
+    return '<div class="lib-item"><div class="t"><div>' + esc(d.title) + (d.id === curId ? ' <small>(en cours)</small>' : '') + '</div><div>'
+      + n.toLocaleString('fr-FR') + ' caractères · ' + d.chapters.length + ' chapitre' + (d.chapters.length > 1 ? 's' : '') + ' · ajouté le ' + new Date(d.added).toLocaleDateString('fr-FR')
+      + '</div></div><button data-open="' + d.id + '">Ouvrir</button><button data-del="' + d.id + '" title="Retirer de la bibliothèque">🗑</button></div>';
+  }).join('') : '<div class="empty">Aucun texte pour l\'instant. Importe un .txt / .epub ou colle un texte.</div>';
+  openModal('mLib');
+};
+$('libList').addEventListener('click', async e => {
+  const o = e.target.closest('[data-open]'), d = e.target.closest('[data-del]');
+  if (o) { const doc = await dbGet(o.dataset.open); if (doc) openDoc(doc); }
+  if (d) {
+    if (!confirm('Retirer ce texte de la bibliothèque ? (ta progression sur les mots est conservée)')) return;
+    await dbDel(d.dataset.del); $('btnLib').onclick();
+  }
+});
+
+/* ---------------- Vocabulaire ---------------- */
+let vFilter = 'todo';
+function renderVocab() {
+  const rows = [];
+  for (const [k, e] of cur.info) {
+    const s = getS(k);
+    if (vFilter === 'todo' ? (s === 1 || s === 2 || s === 0) : s === +vFilter) rows.push([k, e, s]);
+  }
+  rows.sort((a, b) => b[1].n - a[1].n);
+  const col = { 0: 'var(--new-bg)', 1: 'var(--unk)', 2: 'var(--mid)', 3: 'var(--known)' };
+  $('vList').innerHTML = rows.length ? rows.slice(0, 1500).map(([k, e, s]) =>
+    '<div class="vrow"><i class="dot" style="background:' + col[s] + '"></i><span class="wd">' + esc(k) + '</span><span class="rd">' + esc(e.surf !== k ? e.surf + ' · ' : '') + esc(e.read) + '</span><span class="n">×' + e.n + '</span>'
+    + '<button data-k="' + esc(k) + '" data-s="3" title="Connu">⚪</button><button data-k="' + esc(k) + '" data-s="2" title="Moyen">🟠</button><button data-k="' + esc(k) + '" data-s="1" title="Pas connu">🔴</button></div>'
+  ).join('') + (rows.length > 1500 ? '<div class="empty">… et ' + (rows.length - 1500) + ' autres</div>' : '')
+    : '<div class="empty">' + (cur.analyzed < cur.pages.length ? 'Analyse du texte en cours…' : 'Aucun mot dans cette catégorie.') + '</div>';
+  $('vList').dataset.rows = JSON.stringify(rows.map(r => r[0] + '\t' + r[1].read));
+}
+$('btnVocab').onclick = () => { if (!cur) return; renderVocab(); openModal('mVocab'); };
+$('vTabs').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  vFilter = b.dataset.f;
+  $('vTabs').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+  renderVocab();
+});
+$('vList').addEventListener('click', e => {
+  const b = e.target.closest('button[data-k]'); if (!b) return;
+  setStatus(b.dataset.k, +b.dataset.s);
+  const top = $('vList').scrollTop; renderVocab(); $('vList').scrollTop = top;
+});
+$('vCopy').onclick = async () => {
+  const txt = JSON.parse($('vList').dataset.rows || '[]').join('\n');
+  try { await navigator.clipboard.writeText(txt); toast('Liste copiée (' + txt.split('\n').filter(Boolean).length + ' mots)'); }
+  catch (e) { toast('Copie impossible'); }
+};
+
+/* ---------------- Toast ---------------- */
+let toastTimer;
+function toast(msg, undo) {
+  $('toastMsg').textContent = msg;
+  const b = $('toastBtn');
+  b.style.display = undo ? '' : 'none';
+  b.onclick = () => { $('toast').classList.remove('on'); if (undo) undo(); };
+  $('toast').classList.add('on');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => $('toast').classList.remove('on'), undo ? 7000 : 3500);
+}
+
+/* ---------------- Glisser-déposer ---------------- */
+let dragN = 0;
+window.addEventListener('dragenter', e => { if ([...e.dataTransfer.types].includes('Files')) { dragN++; $('drop').classList.add('on'); } });
+window.addEventListener('dragleave', () => { if (--dragN <= 0) { dragN = 0; $('drop').classList.remove('on'); } });
+window.addEventListener('dragover', e => e.preventDefault());
+window.addEventListener('drop', e => {
+  e.preventDefault(); dragN = 0; $('drop').classList.remove('on');
+  const f = e.dataTransfer.files[0];
+  if (f) importFile(f);
+});
+
+/* ---------------- Démarrage ---------------- */
+const DEMO = {
+  title: '例文（デモ）',
+  chapters: [{ title: '例文', paras: [
+    '昨日、友達と映画を見ました。',
+    'とても面白かったので、また見に行きたいと思っています。',
+    '映画の後で、駅の近くにある小さなレストランで晩ご飯を食べました。店員さんはとても親切で、料理も美味しかったです。',
+    '日本語の本を読むのはまだ難しいですが、毎日少しずつ練習すれば、きっと上手になるでしょう。',
+    'このアプリでは、知らない言葉をクリックして、自分のレベルを記録することができます。'
+  ] }]
+};
+$('furiSel').value = settings.furi;
+applyFs(); applyTheme();
+(async () => {
+  await tokenizerReady.catch(() => null);
+  if (!tokenizer) return;
+  let doc = null;
+  try { const last = localStorage.getItem('japreader.last'); if (last) doc = await dbGet(last); } catch (e) {}
+  if (!doc) {
+    const all = (await dbAll()) || [];
+    doc = all.find(d => d.id === 'demo');
+    if (!doc) { doc = Object.assign({ id: 'demo', added: Date.now(), page: 0 }, DEMO); await dbPut(doc); }
+  }
+  openDoc(doc);
+})();
+</script>
+</body>
+</html>
