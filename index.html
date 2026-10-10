@@ -326,6 +326,8 @@ function db() {
     r.onupgradeneeded = () => r.result.createObjectStore('docs', { keyPath: 'id' });
     r.onsuccess = () => res(r.result);
     r.onerror = () => rej(r.error);
+    r.onblocked = () => rej(new Error('base bloquée par un autre onglet'));
+    setTimeout(() => rej(new Error('IndexedDB ne répond pas')), 8000);
   });
   return dbP;
 }
@@ -347,20 +349,66 @@ const dbDel = id => dbOp('readwrite', st => st.delete(id));
 
 /* ---------------- Kuromoji ---------------- */
 let tokenizer = null;
+/* Kuromoji « nettoie » l'adresse du dictionnaire avec path.join, qui transforme « https:// » en « https:/ ».
+   Sur un site en https (GitHub Pages), le navigateur lit alors l'adresse comme un chemin du site lui-même → 404
+   et chargement infini. On répare l'adresse au moment de la requête, on suit la progression,
+   et on transforme un plantage silencieux en vraie erreur. */
+const DICT_SIZE = 17.8 * 1048576;
+let dlLoaded = {}, dlActive = [], lastProgress = Date.now();
+(function () {
+  const open = XMLHttpRequest.prototype.open, send = XMLHttpRequest.prototype.send;
+  XMLHttpRequest.prototype.open = function (m, url, ...rest) {
+    if (typeof url === 'string') url = url.replace(/^(https?):\/(?!\/)/, '$1://');
+    this._jrUrl = url;
+    return open.call(this, m, url, ...rest);
+  };
+  XMLHttpRequest.prototype.send = function (...a) {
+    const url = this._jrUrl || '';
+    if (/\.dat\.gz$/.test(url)) {
+      const xhr = this;
+      dlActive.push(xhr);
+      xhr.addEventListener('progress', e => { dlLoaded[url] = e.loaded; lastProgress = Date.now(); showDl(); });
+      const onload = xhr.onload;
+      if (onload) xhr.onload = function (ev) {
+        try { return onload.call(this, ev); }
+        catch (err) { console.error(err); if (xhr.onerror) xhr.onerror(new Error('fichier du dictionnaire illisible')); }
+      };
+    }
+    return send.apply(this, a);
+  };
+})();
+function showDl() {
+  const got = Object.values(dlLoaded).reduce((a, b) => a + b, 0);
+  $('loadMsg').innerHTML = 'Chargement de l\'analyseur japonais… <b>' + Math.min(99, Math.round(got / DICT_SIZE * 100)) + ' %</b>'
+    + '<br><small style="color:var(--muted)">' + (got / 1048576).toFixed(1) + ' / 17,8 Mo · uniquement au premier lancement, ensuite le navigateur le garde en cache.</small>';
+}
 const tokenizerReady = new Promise((resolve, reject) => {
   const paths = ['https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/dict/', 'https://unpkg.com/kuromoji@0.1.2/dict/'];
-  let i = 0;
-  const tryNext = () => {
-    if (typeof kuromoji === 'undefined') return reject(new Error('kuromoji.js non chargé (connexion internet ?)'));
-    if (i >= paths.length) return reject(new Error('dictionnaire introuvable'));
+  let i = 0, attempt = 0, watch = null;
+  const fail = e => { clearInterval(watch); reject(e); };
+  const tryNext = why => {
+    if (why) console.warn('Dictionnaire :', why);
+    dlActive.forEach(x => { try { x.abort(); } catch (e) {} });
+    dlActive = []; dlLoaded = {}; lastProgress = Date.now();
+    if (typeof kuromoji === 'undefined') return fail(new Error('kuromoji.js non chargé (connexion internet ?)'));
+    if (i >= paths.length) return fail(new Error(why && why.message ? why.message : typeof why === 'string' ? why : 'erreur réseau'));
+    const my = ++attempt;
     kuromoji.builder({ dicPath: paths[i++] }).build((err, t) => {
-      if (err) { console.warn(err); tryNext(); } else { tokenizer = t; resolve(t); }
+      if (my !== attempt) return; // réponse d'une tentative abandonnée
+      if (err) { attempt++; tryNext(err); }
+      else { attempt++; clearInterval(watch); tokenizer = t; resolve(t); }
     });
   };
+  // si plus rien n'arrive pendant 45 s, on essaie le serveur suivant
+  watch = setInterval(() => { if (Date.now() - lastProgress > 45000) { attempt++; tryNext('téléchargement bloqué (aucune donnée depuis 45 s)'); } }, 5000);
   tryNext();
 });
 tokenizerReady.then(() => $('loading').classList.add('hide'))
-  .catch(e => { $('loadMsg').innerHTML = '❌ Impossible de charger l\'analyseur japonais.<br><small>' + esc(String(e.message || e)) + '<br>Une connexion internet est nécessaire au premier lancement.</small>'; $('loading').querySelector('.spin').remove(); });
+  .catch(e => {
+    $('loadMsg').innerHTML = '❌ Impossible de charger l\'analyseur japonais.<br><small>' + esc(String(e.message || e))
+      + '<br>Une connexion internet est nécessaire au premier lancement.</small><br><button onclick="location.reload()" style="margin-top:10px">↻ Réessayer</button>';
+    const sp = $('loading').querySelector('.spin'); if (sp) sp.remove();
+  });
 
 const KANJI = /[㐀-鿿豈-﫿々〆ヶ]/;
 const JP = /[぀-ヿ㐀-鿿豈-﫿々ーｦ-ﾟ]/;
