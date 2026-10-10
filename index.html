@@ -1,12 +1,6 @@
 <!doctype html>
 <html lang="fr">
 <head>
-<link rel="manifest" href="manifest.json">
-<script>
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js');
-  }
-</script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#fffdf8" media="(prefers-color-scheme: light)">
@@ -16,6 +10,7 @@
 <meta name="apple-mobile-web-app-title" content="JapReader">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23e03131'/%3E%3Ctext x='50' y='70' font-size='60' text-anchor='middle' fill='white' font-family='serif'%3E読%3C/text%3E%3C/svg%3E">
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23e03131'/%3E%3Ctext x='50' y='70' font-size='60' text-anchor='middle' fill='white' font-family='serif'%3E読%3C/text%3E%3C/svg%3E">
+<link rel="manifest" href="manifest.json">
 <title>JapReader</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -1309,5 +1304,10 @@ applyFs(); applyTheme();
   openDoc(doc);
 })();
 </script>
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js');
+  }
+</script>  
 </body>
 </html>
