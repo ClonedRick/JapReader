@@ -65,8 +65,15 @@ main{max-width:860px;margin:0 auto;padding:18px 16px 120px}
 .doc-title{font-family:"Noto Serif JP",serif;font-size:20px;font-weight:600;flex:1;min-width:200px;overflow-wrap:anywhere}
 .reader{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:28px 32px;
   font-family:"Noto Serif JP","Hiragino Mincho ProN","Yu Mincho",serif;font-size:var(--fs,22px);line-height:2.1;min-height:300px}
-.reader p{margin:0 0 .9em}
-.reader .ch-title{font-weight:600;font-size:1.15em;margin-bottom:1em;color:var(--muted)}
+.reader p{margin:0;margin-block-end:.9em}
+.reader .ch-title{font-weight:600;font-size:1.15em;margin-block-end:1em;color:var(--muted)}
+/* lecture verticale à la japonaise (縦書き) : colonnes de haut en bas, de droite à gauche */
+.reader.vert{writing-mode:vertical-rl;-webkit-writing-mode:vertical-rl;width:100%;max-width:100%;height:min(78vh,900px);min-height:340px;
+  overflow-x:auto;overflow-y:hidden;line-height:1.95;padding:28px 26px;overscroll-behavior-x:contain}
+.reader.vert p{text-indent:1em;margin-block-end:.4em}
+.tcy{text-combine-upright:all;-webkit-text-combine:horizontal} /* nombres de 1-2 chiffres droits en vertical */
+.pager.vert{flex-direction:row-reverse}
+button.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 .w{cursor:pointer;border-radius:4px;padding:1px 0;transition:background .12s}
 @media (hover:hover){ .w:hover{outline:2px solid var(--accent);outline-offset:1px} }
 .w{-webkit-tap-highlight-color:transparent}
@@ -163,7 +170,38 @@ kbd{border:1px solid var(--line);border-radius:4px;padding:0 5px;font-size:11px;
 #drop{position:fixed;inset:0;z-index:80;background:rgba(59,91,219,.18);border:4px dashed var(--accent);display:none;align-items:center;justify-content:center;font-size:22px;font-weight:600}
 #drop.on{display:flex}
 
+/* ---- Mode immersif : plein écran, une feuille de papier posée sur un bureau ---- */
+:root{--paper-im:#f5eedc;--desk:#3a332a;--paper-edge:rgba(110,80,30,.16)}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){--paper-im:#25221d;--desk:#0d0c0a;--paper-edge:rgba(0,0,0,.45)} }
+:root[data-theme="dark"]{--paper-im:#25221d;--desk:#0d0c0a;--paper-edge:rgba(0,0,0,.45)}
+#imExit, #imPage{display:none}
+body.immersive{overflow:hidden;background:var(--desk)}
+body.immersive header, body.immersive .doc-head, body.immersive .pager, body.immersive .actions,
+body.immersive .legend, body.immersive .hint{display:none !important}
+body.immersive main{max-width:none;padding:0}
+body.immersive .reader{position:fixed;inset:0;margin:0 auto;z-index:30;border:0;border-radius:0;
+  width:min(100%,820px);height:100vh;height:100dvh;min-height:0;overflow-y:auto;overflow-x:hidden;
+  padding:64px max(28px,6vw) 72px;
+  background-color:var(--paper-im);
+  /* grain du papier (bruit SVG) + légère variation de teinte */
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .45 0 0 0 0 .36 0 0 0 0 .22 0 0 0 .09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"),
+    radial-gradient(ellipse at 30% 20%,rgba(255,255,255,.18),transparent 60%),
+    radial-gradient(ellipse at 80% 90%,rgba(120,90,40,.07),transparent 55%);
+  background-attachment:local;
+  box-shadow:0 0 0 1px var(--paper-edge),0 10px 60px rgba(0,0,0,.45),inset 0 0 90px var(--paper-edge)}
+body.immersive .reader.vert{width:100%;max-width:1500px;overflow-x:auto;overflow-y:hidden;padding:56px 56px 60px}
+#imExit{position:fixed;top:10px;right:12px;z-index:35;width:34px;height:34px;padding:0;border-radius:50%;
+  background:transparent;border:1px solid transparent;color:var(--muted);font-size:16px;opacity:.28;transition:opacity .2s,background .2s}
+#imExit:hover,#imExit:focus-visible{opacity:1;background:var(--paper-im);border-color:var(--line)}
+#imPage{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);z-index:35;font-size:12px;color:var(--muted);opacity:.55;
+  font-variant-numeric:tabular-nums;pointer-events:none;letter-spacing:.05em}
+body.immersive #imExit, body.immersive #imPage{display:block}
+@media (hover:none){ #imExit{opacity:.45} }
+
 @media (max-width:640px){
+  body.immersive .reader{padding:48px 20px 56px}
+  body.immersive .reader.vert{padding:44px 18px 48px}
   .bar1{padding:8px 10px;gap:6px}
   .bar1 .t, .opt-label{display:none}
   .bar1 button{padding:6px 10px;font-size:16px}
@@ -178,6 +216,7 @@ kbd{border:1px solid var(--line);border-radius:4px;padding:0 5px;font-size:11px;
   .doc-head{gap:6px}
   .doc-title{font-size:17px;min-width:0;flex-basis:100%}
   .reader{padding:16px 14px;border-radius:10px;line-height:2.2}
+  .reader.vert{height:calc(100dvh - 200px);min-height:320px;padding:14px 12px;line-height:1.9}
   .actions button{flex:1 1 auto;white-space:normal}
   .pager button{padding:9px 14px}
   .legend{font-size:11.5px;gap:8px 12px}
@@ -227,6 +266,8 @@ kbd{border:1px solid var(--line);border-radius:4px;padding:0 5px;font-size:11px;
     </select>
     <button id="fsMinus" title="Réduire le texte">A−</button>
     <button id="fsPlus" title="Agrandir le texte">A+</button>
+    <button id="btnVert" title="Lecture verticale à la japonaise (縦書き) : de haut en bas, de droite à gauche">縦書き</button>
+    <button id="btnImm" title="Mode immersif plein écran">⛶</button>
     <button id="btnTheme" title="Thème clair / sombre">◐</button>
   </div>
 
@@ -250,6 +291,9 @@ kbd{border:1px solid var(--line);border-radius:4px;padding:0 5px;font-size:11px;
   <div class="hint touch-only">Touche un mot pour le menu · Glisse le doigt ← → pour changer de page</div>
   <div class="hint mouse-only">Clic sur un mot = menu · Survol + <kbd>1</kbd> Connu <kbd>2</kbd> Moyen <kbd>3</kbd> Pas connu · <kbd>←</kbd> <kbd>→</kbd> pages</div>
 </main>
+
+<button id="imExit" title="Quitter le mode immersif (Échap)" aria-label="Quitter le mode immersif">✕</button>
+<div id="imPage"></div>
 
 <div id="pop">
   <div class="big" id="popWord"></div>
@@ -305,7 +349,7 @@ let words = {};
 try { words = JSON.parse(localStorage.getItem(WKEY) || '{}') || {}; } catch (e) { words = {}; }
 const isNarrow = () => window.matchMedia('(max-width:640px)').matches;
 const isTouch = window.matchMedia('(pointer:coarse)').matches;
-let settings = { furi: 'notknown', fs: 0, theme: '' }; // fs 0 = taille auto selon l'écran
+let settings = { furi: 'notknown', fs: 0, theme: '', vert: false }; // fs 0 = taille auto selon l'écran
 try { Object.assign(settings, JSON.parse(localStorage.getItem(SKEY) || '{}')); } catch (e) {}
 let saveTimer = null;
 function saveWords() {
@@ -615,7 +659,7 @@ function renderPage() {
   for (const p of pg.paras) {
     html += '<p>';
     for (const u of toUnits(p)) {
-      if (!u.word) { html += esc(u.surface); continue; }
+      if (!u.word) { html += esc(u.surface).replace(/(?<![0-9A-Za-z])[0-9]{1,2}(?![0-9A-Za-z])/g, '<span class="tcy">$&</span>'); continue; }
       const s = getS(u.key), i = units.push(u) - 1;
       html += '<span class="w s' + s + '" data-i="' + i + '">' + unitHTML(u, wantFuri(s)) + '</span>';
     }
@@ -623,6 +667,9 @@ function renderPage() {
   }
   cur.units = units;
   $('reader').innerHTML = html;
+  $('reader').scrollLeft = 0; // en vertical, le début du texte est à droite (position 0)
+  $('reader').scrollTop = 0;
+  $('imPage').textContent = (cur.page + 1) + ' / ' + cur.pages.length;
   $('pnum').textContent = (cur.page + 1) + ' / ' + cur.pages.length;
   $('prev').disabled = cur.page === 0;
   $('next').disabled = cur.page >= cur.pages.length - 1;
@@ -1027,7 +1074,9 @@ function placePop() {
   if (isNarrow()) {
     // panneau en bas : on fait remonter le mot s'il est caché dessous
     const limit = window.innerHeight - ph - 12;
-    if (r.bottom > limit) window.scrollBy({ top: r.bottom - limit + 8, behavior: 'smooth' });
+    // en mode immersif c'est la feuille qui défile, pas la page
+    const sc = document.body.classList.contains('immersive') ? $('reader') : window;
+    if (r.bottom > limit) sc.scrollBy({ top: r.bottom - limit + 8, behavior: 'smooth' });
     return;
   }
   let left = r.left + r.width / 2 - pw / 2;
@@ -1086,23 +1135,42 @@ window.addEventListener('resize', () => { if (window.innerWidth !== lastW) { las
 
 /* ---------------- Glisser pour changer de page (tactile) ---------------- */
 let swipe = null;
+// Position de défilement en vertical : 0 = début (à droite), max = fin (à gauche)
+function vertScroll() {
+  const r = $('reader');
+  return { pos: -r.scrollLeft, max: Math.max(0, r.scrollWidth - r.clientWidth) };
+}
 $('reader').addEventListener('touchstart', e => {
   if (e.touches.length !== 1) { swipe = null; return; }
-  swipe = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now() };
+  swipe = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now(), v: vertScroll() };
 }, { passive: true });
 $('reader').addEventListener('touchend', e => {
   if (!swipe || !cur) return;
-  const t = e.changedTouches[0], dx = t.clientX - swipe.x, dy = t.clientY - swipe.y;
+  const t = e.changedTouches[0], dx = t.clientX - swipe.x, dy = t.clientY - swipe.y, v = swipe.v;
   const ok = Math.abs(dx) > 70 && Math.abs(dy) < Math.abs(dx) * 0.5 && Date.now() - swipe.t < 700;
   swipe = null;
   if (!ok || (window.getSelection && String(window.getSelection()))) return;
-  goPage(cur.page + (dx < 0 ? 1 : -1));
+  if (settings.vert) {
+    // le texte défile horizontalement : on ne tourne la page que si on était déjà au bord
+    if (dx > 0 && v.pos >= v.max - 2) goPage(cur.page + 1);      // doigt vers la droite = on avance (comme un livre japonais)
+    else if (dx < 0 && v.pos <= 2) goPage(cur.page - 1);
+  } else goPage(cur.page + (dx < 0 ? 1 : -1));
 }, { passive: true });
+// En vertical, la molette de la souris fait défiler le texte de droite à gauche
+$('reader').addEventListener('wheel', e => {
+  if (!settings.vert || e.ctrlKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+  const { pos, max } = vertScroll(), d = e.deltaY * (e.deltaMode === 1 ? 16 : 1);
+  if (max <= 0) return;
+  if ((d > 0 && pos < max - 1) || (d < 0 && pos > 1)) { $('reader').scrollLeft -= d; e.preventDefault(); }
+}, { passive: false });
 
 /* ---------------- Clavier ---------------- */
 document.addEventListener('keydown', e => {
   if (e.target.matches('input,textarea,select') || e.ctrlKey || e.metaKey || e.altKey) return;
-  if (e.key === 'Escape') { hidePop(); closeModals(); return; }
+  if (e.key === 'Escape') {
+    if (!popUnit && document.body.classList.contains('immersive')) setImmersive(false);
+    hidePop(); closeModals(); return;
+  }
   if (document.querySelector('.modal.on') || !cur) return;
   const map = { '1': 3, '2': 2, '3': 1, '&': 3, 'é': 2, '"': 1 }; // AZERTY sans Maj aussi
   if (map[e.key]) {
@@ -1110,8 +1178,9 @@ document.addEventListener('keydown', e => {
     if (el) { setStatus(cur.units[el.dataset.i].key, map[e.key]); e.preventDefault(); }
     return;
   }
-  if (e.key === 'ArrowRight') goPage(cur.page + 1);
-  if (e.key === 'ArrowLeft') goPage(cur.page - 1);
+  const fwd = settings.vert ? 'ArrowLeft' : 'ArrowRight', back = settings.vert ? 'ArrowRight' : 'ArrowLeft';
+  if (e.key === fwd) goPage(cur.page + 1);
+  if (e.key === back) goPage(cur.page - 1);
 });
 
 /* ---------------- Boutons ---------------- */
@@ -1146,6 +1215,40 @@ $('fsMinus').onclick = () => { settings.fs = Math.max(14, curFs() - 2); applyFs(
 $('fsPlus').onclick = () => { settings.fs = Math.min(40, curFs() + 2); applyFs(); saveSettings(); };
 // Sur téléphone, le filtre « accept » grise parfois les .epub dans le sélecteur de fichiers : on l'enlève
 if (isTouch) { $('fileText').removeAttribute('accept'); $('fileJson').removeAttribute('accept'); }
+function applyVert() {
+  const v = !!settings.vert;
+  $('reader').classList.toggle('vert', v);
+  document.querySelector('.pager').classList.toggle('vert', v);
+  $('btnVert').classList.toggle('on', v);
+  $('btnVert').setAttribute('aria-pressed', v);
+  // en vertical on lit vers la gauche : « Suivant » passe à gauche
+  $('prev').textContent = v ? 'Précédent →' : '← Précédent';
+  $('next').textContent = v ? '← Suivant' : 'Suivant →';
+  $('reader').scrollLeft = 0;
+}
+$('btnVert').onclick = () => { settings.vert = !settings.vert; saveSettings(); hidePop(); applyVert(); };
+
+/* ---------------- Mode immersif (plein écran, effet papier) ---------------- */
+function setImmersive(on) {
+  hidePop();
+  document.body.classList.toggle('immersive', on);
+  const el = document.documentElement, fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+  if (on && !fsEl) {
+    // le vrai plein écran n'existe pas partout (iPhone) : la page reste alors en mode immersif sans
+    const req = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (req) try { const p = req.call(el, { navigationUI: 'hide' }); if (p && p.catch) p.catch(() => {}); } catch (e) {}
+  } else if (!on && fsEl) {
+    const ex = document.exitFullscreen || document.webkitExitFullscreen;
+    if (ex) try { const p = ex.call(document); if (p && p.catch) p.catch(() => {}); } catch (e) {}
+  }
+  $('reader').scrollTop = 0; $('reader').scrollLeft = 0;
+}
+$('btnImm').onclick = () => setImmersive(true);
+$('imExit').onclick = e => { e.stopPropagation(); setImmersive(false); };
+// Échap (ou le geste « retour ») quitte le plein écran du navigateur : on quitte aussi le mode immersif
+const onFs = () => { if (!(document.fullscreenElement || document.webkitFullscreenElement) && document.body.classList.contains('immersive')) setImmersive(false); };
+document.addEventListener('fullscreenchange', onFs);
+document.addEventListener('webkitfullscreenchange', onFs);
 function applyTheme() { if (settings.theme) document.documentElement.dataset.theme = settings.theme; else delete document.documentElement.dataset.theme; }
 $('btnTheme').onclick = () => {
   const dark = settings.theme ? settings.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
@@ -1290,7 +1393,7 @@ const DEMO = {
   ] }]
 };
 $('furiSel').value = settings.furi;
-applyFs(); applyTheme();
+applyFs(); applyTheme(); applyVert();
 (async () => {
   await tokenizerReady.catch(() => null);
   if (!tokenizer) return;
